@@ -53,6 +53,7 @@ vcpkg_install(PACKAGES
   glaze
   nlohmann-json
   gtest
+  benchmark
   cpptrace
 )
 
@@ -65,6 +66,7 @@ find_package(restclient-cpp CONFIG REQUIRED)
 find_package(CURL REQUIRED)
 find_package(cpptrace CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
+find_package(benchmark CONFIG REQUIRED)
 include(GoogleTest)
 
 #############################################
@@ -104,6 +106,14 @@ add_executable(test-serio tests/test-serio.cpp)
 target_link_libraries(test-serio PRIVATE falutez GTest::gtest)
 
 gtest_discover_tests(test-serio)
+
+
+#############################################
+##   benchmarking
+
+add_executable(bench-serio benchmarks/bench-serio.cpp)
+
+target_link_libraries(bench-serio PRIVATE falutez benchmark::benchmark benchmark::benchmark_main)
 
 #############################################
 ##   cmake install
