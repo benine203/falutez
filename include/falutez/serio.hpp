@@ -14,51 +14,45 @@ namespace XSON {
 
 template <typename TXSONImpl>
 concept XSON = requires(TXSONImpl obj) {
+  /// @brief needs a serialize method to return a owned string
   { obj.serialize() } -> std::convertible_to<std::string>;
 
+  /// @brief serialize should take a defaulted argument (or be overloaded) for
+  /// pretty-printing
   { obj.serialize(true) } -> std::convertible_to<std::string>;
 
   {
+    /// @brief must supply a deserialize() method that returns ref to self
     obj.deserialize(std::string_view{})
   } -> std::common_reference_with<TXSONImpl>;
 
+  /// @brief supports [] indexing (returns refs)
   { obj[std::string_view{}] } -> std::common_reference_with<TXSONImpl>;
 
+  /// @brief supports at() lookup (returns refs)
+  /// no stipulation on throwing or not throwing
   { obj.at(std::string_view{}) } -> std::common_reference_with<TXSONImpl>;
 
+  /// @brief templated get<> methods
   { obj.template get<int64_t>() } -> std::same_as<int64_t>;
-
   { obj.template get<uint64_t>() } -> std::same_as<uint64_t>;
-
   { obj.template get<int32_t>() } -> std::same_as<int32_t>;
-
   { obj.template get<uint32_t>() } -> std::same_as<uint32_t>;
-
   { obj.template get<int16_t>() } -> std::same_as<int16_t>;
-
   { obj.template get<uint16_t>() } -> std::same_as<uint16_t>;
-
   { obj.template get<int8_t>() } -> std::same_as<int8_t>;
-
   { obj.template get<uint8_t>() } -> std::same_as<uint8_t>;
-
   { obj.template get<bool>() } -> std::same_as<bool>;
-
   { obj.template get<float>() } -> std::same_as<float>;
-
   { obj.template get<double>() } -> std::same_as<double>;
-
   { obj.template get<std::string>() } -> std::same_as<std::string>;
 
+  /// @brief refs returned by operator[] should directly comparable to
+  /// at least these types.
   obj[std::string_view{}] == int32_t{};
-
   obj[std::string_view{}] == double{};
-
   obj[std::string_view{}] == std::string{};
-
   obj[std::string_view{}] == bool{};
-
-  obj[std::string_view{}] == TXSONImpl{};
 };
 
 struct NLH : public nlohmann::json {
@@ -221,6 +215,25 @@ TYPED_TEST(XSONTest, SERDE) {
   EXPECT_EQ(obj["key3"], 3.14);
 
   EXPECT_EQ(obj.serialize(), "{\"key\":\"value\",\"key2\":42,\"key3\":3.14}");
+}
+
+TEST(XSON, ConversionRoundTrip) {
+  XSON::NLH json1;
+  XSON::GLZ json2;
+
+  const auto raw = R"({"key":"value","key2":42,"key3":3.14})";
+
+  json1.deserialize(raw);
+
+  json2.deserialize(json1.serialize());
+
+  EXPECT_EQ(json1["key"].get<std::string>(), json2["key"].get<std::string>());
+  EXPECT_EQ(json1["key2"].get<int>(), json2["key2"].get<int>());
+  EXPECT_EQ(json1["key3"].get<double>(), json2["key3"].get<double>());
+
+  json1.deserialize(json2.serialize());
+
+  EXPECT_EQ(json1.serialize(), raw);
 }
 
 #endif
