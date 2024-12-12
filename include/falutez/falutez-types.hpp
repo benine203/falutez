@@ -93,6 +93,10 @@ struct Headers {
     return result;
   }
 
+  bool operator==(Headers const &other) const {
+    return headers == other.headers;
+  }
+
 private:
   std::unordered_map<std::string, std::string> headers;
 };

@@ -72,12 +72,19 @@ include(GoogleTest)
 #############################################
 ##  target defns
 
-add_library(falutez STATIC src/falutez.cpp include/falutez/falutez.hpp include/falutez/serio.hpp)
+# glob headers
+file(GLOB_RECURSE HEADERS include/falutez/*.hpp)
+
+add_library(falutez STATIC src/falutez.cpp ${HEADERS})
 
 target_include_directories(falutez PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
 
-target_sources(falutez INTERFACE
+target_sources(falutez PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/falutez.hpp>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/falutez-types.hpp>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/falutez-generic-client.hpp>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/falutez-http-status.hpp>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/falutez-impl-restclient.hpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/serio.hpp>
   $<INSTALL_INTERFACE:include/falutez/falutez.hpp>
   $<INSTALL_INTERFACE:include/falutez/serio.hpp>
@@ -109,6 +116,10 @@ gtest_discover_tests(test-serio)
 add_executable(test-falutez tests/test-falutez.cpp)
 target_link_libraries(test-falutez PRIVATE falutez GTest::gtest)
 gtest_discover_tests(test-falutez)
+
+add_executable(test-falutez-restclient tests/test-falutez-restclient.cpp)
+target_link_libraries(test-falutez-restclient PRIVATE falutez GTest::gtest)
+gtest_discover_tests(test-falutez-restclient)
 
 
 #############################################
