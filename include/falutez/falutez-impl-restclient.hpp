@@ -31,9 +31,8 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
     config->keepalive = keepalive;
   }
 
-  void
-  set_headers(std::pair<std::string_view, std::string_view> headers) override {
-    config->headers = headers;
+  void set_headers(Headers headers) override {
+    config->headers = std::move(headers);
   }
 };
 

@@ -6,38 +6,16 @@
 
 #include "falutez/serio.hpp"
 
+#include "falutez/falutez-types.hpp"
+
 namespace HTTP {
-
-/**
- * @brief ClientImpl concept - all implementation should abide by the interface
- *        GenericClient is statically checked at compile time  against this
- *        concept to reduce the chance of definitions going out of sync
- */
-template <typename TImpl>
-concept ClientImpl = requires(TImpl impl) {
-  impl.set_base_url(std::string_view{});
-  impl.set_timeout(std::chrono::milliseconds{});
-  impl.set_keepalive(std::make_pair<bool, std::chrono::milliseconds>(
-      true, std::chrono::milliseconds{1000}));
-  impl.set_headers(std::make_pair<std::string_view, std::string_view>("", ""));
-
-  { impl.base_url() } -> std::convertible_to<std::string_view>;
-  { impl.timeout() } -> std::convertible_to<std::chrono::milliseconds>;
-  {
-    impl.keepalive()
-  } -> std::convertible_to<std::pair<bool, std::chrono::milliseconds>>;
-  {
-    impl.headers()
-  } -> std::convertible_to<std::pair<std::string_view, std::string_view>>;
-};
 
 enum class METHOD { GET, POST, PUT, DELETE };
 
 struct Headers {
 
   /// construct from maps, other headers, or JSON
-  Headers(std::unordered_map<std::string, std::string> headers)
-      : headers{std::move(headers)} {}
+
   Headers(std::unordered_map<std::string, std::string> const &headers)
       : headers{headers} {}
   Headers(std::unordered_map<std::string, std::string> &&headers)
@@ -46,6 +24,9 @@ struct Headers {
   Headers(Headers const &other) = default;
   Headers(Headers &&other) = default;
   Headers(XSON::XSON auto &json) { merge(json); }
+
+  Headers &operator=(Headers const &other) = default;
+  Headers &operator=(Headers &&other) = default;
 
   /// operator[] to access/mutate by key
   std::string &operator[](std::string const &key) { return headers.at(key); }
@@ -114,6 +95,28 @@ struct Headers {
 
 private:
   std::unordered_map<std::string, std::string> headers;
+};
+
+/**
+ * @brief ClientImpl concept - all implementation should abide by the interface
+ *        GenericClient is statically checked at compile time  against this
+ *        concept to reduce the chance of definitions going out of sync
+ */
+template <typename TImpl>
+concept ClientImpl = requires(TImpl impl) {
+  impl.set_base_url(std::string_view{});
+  impl.set_timeout(std::chrono::milliseconds{});
+  impl.set_keepalive(std::make_pair<bool, std::chrono::milliseconds>(
+      true, std::chrono::milliseconds{1000}));
+
+  impl.set_headers(Headers{});
+
+  { impl.base_url() } -> std::convertible_to<std::string_view>;
+  { impl.timeout() } -> std::convertible_to<std::chrono::milliseconds>;
+  {
+    impl.keepalive()
+  } -> std::convertible_to<std::pair<bool, std::chrono::milliseconds>>;
+  { impl.headers() } -> std::convertible_to<Headers>;
 };
 
 struct Request {

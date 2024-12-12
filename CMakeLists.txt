@@ -91,7 +91,7 @@ target_link_libraries(falutez PUBLIC
     cpptrace::cpptrace
 )
 
-target_compile_options(falutez INTERFACE -Wno-c99-designator)
+target_compile_options(falutez PUBLIC -Wno-c99-designator)
 
 generate_export_header(falutez)
 

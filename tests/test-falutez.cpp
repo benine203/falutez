@@ -1,3 +1,4 @@
+#include "falutez/falutez-types.hpp"
 #include <gtest/gtest.h>
 
 #include <falutez/falutez.hpp>
@@ -22,7 +23,7 @@ struct NullClient : public HTTP::GenericClient<NullClientConfig> {
   void set_base_url(std::string_view) override {}
   void set_timeout(std::chrono::milliseconds) override {}
   void set_keepalive(std::pair<bool, std::chrono::milliseconds>) override {}
-  void set_headers(std::pair<std::string_view, std::string_view>) override {}
+  void set_headers(HTTP::Headers) override {}
 
   void extra_functionality1() { config->dummy1 = true; }
 };
@@ -37,7 +38,7 @@ TEST(Falutez, ImplInterface) {
 
   client1.set_keepalive(std::make_pair(true, std::chrono::milliseconds{1000}));
 
-  client1.set_headers(std::make_pair("Content-Type", "application/json"));
+  client1.set_headers(HTTP::Headers{{{"Content-Type", "application/json"}}});
 
   SUCCEED();
 }
