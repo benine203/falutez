@@ -102,10 +102,12 @@ generate_export_header(falutez)
 enable_testing()
 
 add_executable(test-serio tests/test-serio.cpp)
-
 target_link_libraries(test-serio PRIVATE falutez GTest::gtest)
-
 gtest_discover_tests(test-serio)
+
+add_executable(test-falutez tests/test-falutez.cpp)
+target_link_libraries(test-falutez PRIVATE falutez GTest::gtest)
+gtest_discover_tests(test-falutez)
 
 
 #############################################

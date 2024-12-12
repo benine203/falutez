@@ -3,8 +3,11 @@
 #include <chrono>
 #include <concepts>
 #include <cstdint>
+#include <unordered_map>
 
 #include <falutez/serio.hpp>
+
+#include <restclient-cpp/restclient.h>
 
 namespace HTTP {
 
@@ -208,59 +211,74 @@ struct Request {
   std::string_view body;
 };
 
-// - should be default constructible
-// - constructive from string_view URL
-// - asynchronous methods
+/**
+ * @brief ClientImpl concept - all implementation should abide by the interface
+ */
 template <typename TImpl>
 concept ClientImpl = requires(TImpl impl) {
-  { TImpl::get_client() } -> std::same_as<TImpl>;
-
+  true;
   impl.set_base_url(std::string_view{});
-
   impl.set_timeout(std::chrono::milliseconds{});
-
   impl.set_keepalive(std::make_pair<bool, std::chrono::milliseconds>(
       true, std::chrono::milliseconds{1000}));
-
   impl.set_headers(std::make_pair<std::string_view, std::string_view>("", ""));
 };
 
-template <ClientImpl CImpl> struct Client {
-  Client() : impl{CImpl::get_client()} {}
+/**
+ *  @brief untemplatized polymorphic handle for clients
+ */
+struct GenericClient {
 
-  static Request get(std::string_view path, std::string_view body = {}) {}
+  struct ClientConfig {
+    std::string base_url;
+    std::chrono::milliseconds timeout;
+    std::pair<bool, std::chrono::milliseconds> keepalive;
+    std::pair<std::string_view, std::string_view> headers;
+  };
 
-  static Request get(std::string_view path, XSON::XSON auto body) {
-    auto zz = body.at("zz");
-    auto xx = body["sdf"];
+  virtual ~GenericClient() = default;
+
+  GenericClient() = delete;
+  GenericClient(ClientConfig params) {}
+
+  virtual void set_base_url(std::string_view) = 0;
+  virtual void set_timeout(std::chrono::milliseconds) = 0;
+  virtual void set_keepalive(std::pair<bool, std::chrono::milliseconds>) = 0;
+  virtual void set_headers(std::pair<std::string_view, std::string_view>) = 0;
+};
+
+struct Client {
+  static Request REQ(METHOD method, std::string_view path,
+                     std::string_view body = {}) {}
+
+  Client() = default;
+
+  template <ClientImpl TImpl>
+  Client(std::shared_ptr<TImpl> impl)
+      : impl{std::dynamic_pointer_cast<GenericClient>(impl)} {}
+
+  template <ClientImpl TImpl>
+  Client(TImpl &&client) : impl{std::make_shared<TImpl>(std::move(client))} {}
+
+  template <ClientImpl TImpl> void initialize(auto &&...args) {
+    impl = std::dynamic_pointer_cast<GenericClient>(
+        std::make_shared<TImpl>(std::forward<decltype(args)>(args)...));
   }
-
-  void set_base_url(std::string_view base_url) { impl.set_base_url(base_url); }
-
-  void set_timeout(std::chrono::milliseconds t) { impl.set_timeout(t); }
-
-  void set_keepalive(std::pair<bool, std::chrono::milliseconds> ka) {
-    impl.set_keepalive(ka);
-  }
-
-  void set_headers(std::pair<std::string_view, std::string_view>) {}
 
 private:
-  CImpl impl;
+  std::shared_ptr<GenericClient> impl;
 };
 
-struct NullClient {
-  static auto get_client() { return NullClient{}; }
-  void set_base_url(std::string_view) {}
-  void set_timeout(std::chrono::milliseconds) {}
-  void set_keepalive(std::pair<bool, std::chrono::milliseconds>) {}
-  void set_headers(std::pair<std::string_view, std::string_view>) {}
+// static check on GenericClient interface matching concept
+
+namespace _static_check {
+template <ClientImpl TImpl> struct StaticCheck {
+  static constexpr inline auto value = true;
 };
 
-struct SomeClient {
-  Client<NullClient> client;
+static_assert(StaticCheck<GenericClient>::value,
+              "GenericClient does not match ClientImpl concept");
 
-  void init() { client.set_base_url("https://localhost"); }
-};
+} // namespace _static_check
 
 } // namespace HTTP
