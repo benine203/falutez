@@ -2,7 +2,11 @@
 
 #include <concepts>
 #include <format>
+#include <glaze/core/context.hpp>
+#include <glaze/core/opts.hpp>
+#include <glaze/core/read.hpp>
 #include <glaze/json/json_t.hpp>
+#include <glaze/json/ptr.hpp>
 #include <string_view>
 
 #include <nlohmann/json.hpp>
@@ -52,6 +56,20 @@ concept XSON = requires(TXSONImpl obj) {
   obj[std::string_view{}] == double{};
   obj[std::string_view{}] == std::string{};
   obj[std::string_view{}] == bool{};
+
+  /// @brief enumerating
+  obj.items();
+  obj.items().begin();
+  obj.items().end();
+
+  /// @brief size
+  obj.size();
+
+  /// @brief empty
+  obj.empty();
+
+  /// @brief contains
+  obj.contains(std::string_view{});
 };
 
 struct NLH : public nlohmann::json {
@@ -169,6 +187,32 @@ struct GLZ : public glz::json_t {
     return this->is_boolean() && this->get<bool>() == other;
   }
 
+  struct unpacked_items {
+    std::unordered_map<glz::sv, XSON::GLZ> items;
+  };
+
+  auto &items() {
+    if (this->is_object()) {
+      using object_t = std::map<std::string, GLZ, std::less<>>;
+      return reinterpret_cast<object_t &>(this->get_object());
+    } else {
+      throw std::runtime_error{
+          std::format("{}:{}:{}: items() called on elelment that does not "
+                      "support enumeration",
+                      __FILE__, __LINE__, __func__)};
+    }
+  }
+
 } __attribute__((packed));
 
+static_assert(sizeof(GLZ) == sizeof(glz::json_t));
+
+using JSON = GLZ;
+
 } // namespace XSON
+
+template <> struct glz::meta<XSON::GLZ::unpacked_items> {
+  using T = XSON::GLZ::unpacked_items;
+  static constexpr auto unknown_read{&T::items};
+  static constexpr auto unknown_write{&T::items};
+};

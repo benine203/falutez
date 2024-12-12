@@ -2,17 +2,17 @@
 
 #include <falutez/falutez.hpp>
 
-struct NullClient : public HTTP::GenericClient {
+struct NullClientConfig : public HTTP::GenericClientConfig {
+  bool dummy1;
+  std::string dummy2;
+};
 
-  struct NullClientParams : public GenericClient::ClientConfig {
-    bool dummy1;
-    std::string dummy2;
-  };
+struct NullClient : public HTTP::GenericClient<NullClientConfig> {
 
   NullClient() = delete;
-  NullClient(NullClientParams params) : GenericClient{params} {}
-  NullClient(bool dummy1, std::string dummy2)
-      : GenericClient{NullClientParams{.dummy1 = dummy1, .dummy2 = dummy2}} {}
+
+  NullClient(NullClientConfig params)
+      : GenericClient{std::make_shared<NullClientConfig>(params)} {}
 
   NullClient(NullClient &&) = default;
   NullClient &operator=(NullClient &&) = default;
@@ -23,13 +23,13 @@ struct NullClient : public HTTP::GenericClient {
   void set_timeout(std::chrono::milliseconds) override {}
   void set_keepalive(std::pair<bool, std::chrono::milliseconds>) override {}
   void set_headers(std::pair<std::string_view, std::string_view>) override {}
+
+  void extra_functionality1() { config->dummy1 = true; }
 };
 
 TEST(Falutez, ImplInterface) {
 
-  NullClient client1{NullClient::NullClientParams{}};
-
-  NullClient client2{1, "x"};
+  NullClient client1{NullClientConfig{}};
 
   client1.set_base_url("http://localhost:8080");
 
@@ -39,15 +39,15 @@ TEST(Falutez, ImplInterface) {
 
   client1.set_headers(std::make_pair("Content-Type", "application/json"));
 
-  client2.set_base_url("http://localhost:8080");
-
-  client2.set_timeout(std::chrono::milliseconds{1000});
-
-  client2.set_keepalive(std::make_pair(true, std::chrono::milliseconds{1000}));
-
-  client2.set_headers(std::make_pair("Content-Type", "application/json"));
-
   SUCCEED();
+}
+
+TEST(Falutez, Request) { SUCCEED(); }
+
+TEST(Falutez, TypeErased) {
+  HTTP::Client client;
+
+  client = NullClient{NullClientConfig{}};
 }
 
 int main(int argc, char **argv) {
