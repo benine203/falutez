@@ -22,22 +22,22 @@ struct Client {
 
   template <ClientImpl TImpl>
   Client(std::shared_ptr<TImpl> impl)
-      : impl{std::dynamic_pointer_cast<GenericClient<GenericClientConfig>>(
+      : impl_{std::dynamic_pointer_cast<GenericClient<GenericClientConfig>>(
             impl)} {}
 
   template <ClientImpl TImpl>
   Client(TImpl &&client)
-      : impl{std::dynamic_pointer_cast<GenericClient<GenericClientConfig>>(
-            std::make_shared<TImpl>(std::move(client)))} {}
+      : impl_{std::dynamic_pointer_cast<GenericClient<GenericClientConfig>>(
+            std::make_shared<TImpl>(std::forward<decltype(client)>(client)))} {}
 
   template <ClientImpl TImpl> Client &operator=(std::shared_ptr<TImpl> impl) {
-    this->impl =
+    this->impl_ =
         std::dynamic_pointer_cast<GenericClient<GenericClientConfig>>(impl);
     return *this;
   }
 
 private:
-  std::shared_ptr<GenericClient<GenericClientConfig>> impl;
+  std::shared_ptr<GenericClient<GenericClientConfig>> impl_;
 };
 
 } // namespace HTTP
