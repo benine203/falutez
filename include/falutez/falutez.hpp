@@ -6,6 +6,8 @@
 
 #include <falutez/falutez-generic-client.hpp>
 
+#include <falutez/falutez-impl-restclient.hpp>
+
 namespace HTTP {
 
 /**

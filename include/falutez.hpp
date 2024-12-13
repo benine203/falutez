@@ -895,6 +895,131 @@ static_assert(StaticCheck<GenericClient<GenericClientConfig>>::value,
 
 namespace HTTP {
 
+struct RestClientClientConfig : public GenericClientConfig {
+  uint32_t thread_pool_size = 1;
+};
+
+struct RestClientClient : public GenericClient<RestClientClientConfig> {
+
+  RestClientClient() = delete;
+
+  ~RestClientClient() override { GenericClient::~GenericClient(); }
+
+  RestClientClient(RestClientClientConfig params)
+      : GenericClient{std::make_shared<RestClientClientConfig>(params)},
+        thread_pool{params.thread_pool_size} {
+    RestClient::init();
+  }
+
+  RestClientClient(RestClientClient &&) = delete;
+  RestClientClient &operator=(RestClientClient &&) = delete;
+  RestClientClient(const RestClientClient &) = delete;
+  RestClientClient &operator=(const RestClientClient &) = delete;
+
+  AsyncResponse request(METHOD method, RequestSpec params) override {
+
+    auto sync_op = [this, method, params]() -> HTTP::Response {
+      static thread_local RestClient::Connection conn = [this]() {
+        auto thr_conn = RestClient::Connection{config->base_url};
+        if (config->timeout.count() != 0)
+          thr_conn.SetTimeout(
+              std::chrono::duration_cast<std::chrono::seconds>(config->timeout)
+                  .count());
+        return thr_conn;
+      }();
+
+      Response response{.method = method, .path = std::string{params.path}};
+      response.headers = config->headers;
+      response.body = std::move(params.body);
+
+      {
+        auto combined_headers = Headers{config->headers};
+
+        if (params.headers.has_value())
+          combined_headers.merge(params.headers.value());
+
+        conn.SetHeaders(std::move(combined_headers));
+      }
+
+      const static std::unordered_map<
+          METHOD, std::function<RestClient::Response(
+                      HTTP::Response &, RestClient::Connection &, std::string)>>
+          methods = {
+              {METHOD::GET,
+               [](auto &req, auto &conn, auto path) { return conn.get(path); }},
+              {METHOD::POST,
+               [](auto &req, auto &conn, auto path) {
+                 return conn.post(path,
+                                  req.body.has_value() ? req.body->data : "");
+               }},
+              {METHOD::PUT,
+               [](auto &req, auto &conn, auto path) {
+                 return conn.put(path,
+                                 req.body.has_value() ? req.body->data : "");
+               }},
+              {METHOD::PATCH,
+               [](auto &req, auto &conn, auto path) {
+                 return conn.patch(path,
+                                   req.body.has_value() ? req.body->data : "");
+               }},
+              {METHOD::DELETE,
+               [](auto &req, auto &conn, auto path) { return conn.del(path); }},
+              {METHOD::HEAD, [](auto &req, auto &conn,
+                                auto path) { return conn.head(path); }},
+              {METHOD::OPTIONS, [](auto &req, auto &conn,
+                                   auto path) { return conn.options(path); }},
+          };
+
+      std::string full_path;
+
+      if (auto last_char = base_url().back();
+          last_char != '/' && params.path.front() != '/') {
+        full_path += '/';
+      }
+
+      full_path += params.path;
+
+      if (params.params.has_value()) {
+        full_path += params.params.value().get_url_component();
+      }
+
+      auto &req_fn = methods.at(method);
+
+      response.start_time = std::chrono::system_clock::now();
+      auto res = req_fn(response, conn, full_path);
+      response.end_time = std::chrono::system_clock::now();
+      response.status = res.code;
+
+      response.body = HTTP::Body{res.body};
+
+      if (res.headers.contains("Content-Type")) {
+        response.body->content_type = res.headers.at("Content-Type");
+      }
+
+      if (!res.headers.empty()) {
+        response.headers = HTTP::Headers{res.headers};
+      }
+
+      return response;
+    };
+
+    auto sch = thread_pool.get_scheduler();
+
+    auto [val] =
+        stdexec::sync_wait(stdexec::then(stdexec::schedule(sch), sync_op))
+            .value();
+
+    co_return val;
+  }
+
+private:
+  exec::static_thread_pool thread_pool;
+};
+
+} // namespace HTTP
+
+namespace HTTP {
+
 struct Client {
 
   Client() = default;
