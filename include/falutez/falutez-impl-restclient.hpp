@@ -2,7 +2,6 @@
 
 #ifndef _UNIHEADER_BUILD_
 #include <exec/static_thread_pool.hpp>
-#include <iostream>
 #include <restclient-cpp/connection.h>
 #include <restclient-cpp/restclient.h>
 #endif
@@ -36,108 +35,129 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
   AsyncResponse request(METHOD method, RequestSpec params) override {
     // construct a thread-local connection object for each thread in the pool.
     // and apply any necessary configuration.
-    static thread_local RestClient::Connection conn = [this]() {
-      auto thr_conn = RestClient::Connection{config->base_url};
-      if (config->timeout.count() != 0)
-        thr_conn.SetTimeout(
-            std::chrono::duration_cast<std::chrono::seconds>(config->timeout)
-                .count());
-      // if (config->keepalive.first) {
-      //   // curl automatically reuses connections
-      // }
+
+    auto sync_op = [this, method, params]() -> HTTP::Response {
+      static thread_local RestClient::Connection conn = [this]() {
+        auto thr_conn = RestClient::Connection{config->base_url};
+        if (config->timeout.count() != 0)
+          thr_conn.SetTimeout(
+              std::chrono::duration_cast<std::chrono::seconds>(config->timeout)
+                  .count());
+        // if (config->keepalive.first) {
+        //   // curl automatically reuses connections
+        // }
 #ifndef NDEBUG
-      std::cerr << std::format(
-          "{}:{}:{}: threadpool connection initialized with timeout={}\n",
-          __FILE__, __LINE__, __func__, thr_conn.GetInfo().timeout);
+        std::cerr << std::format(
+            "{}:{}:{}: threadpool connection initialized with timeout={}\n",
+            __FILE__, __LINE__, __func__, thr_conn.GetInfo().timeout);
 #endif
-      return thr_conn;
-    }();
+        return thr_conn;
+      }();
 
-    Response req{.method = method, .path = std::string{params.path}};
-    req.headers = config->headers;
-    req.body = std::move(params.body);
+      Response response{.method = method, .path = std::string{params.path}};
+      response.headers = config->headers;
+      response.body = std::move(params.body);
 
-    {
-      auto combined_headers = Headers{config->headers};
+      {
+        auto combined_headers = Headers{config->headers};
 
-      if (params.headers.has_value())
-        combined_headers.merge(params.headers.value());
+        if (params.headers.has_value())
+          combined_headers.merge(params.headers.value());
 
-      conn.SetHeaders(std::move(combined_headers));
-    }
+        conn.SetHeaders(std::move(combined_headers));
+      }
 
-    static std::unordered_map<
-        METHOD, std::function<RestClient::Response(
-                    HTTP::Response &, RestClient::Connection &, std::string)>>
-        methods = {
-            {METHOD::GET,
-             [](auto &req, auto &conn, auto path) { return conn.get(path); }},
-            {METHOD::POST,
-             [](auto &req, auto &conn, auto path) {
-               return conn.post(path,
-                                req.body.has_value() ? req.body->data : "");
-             }},
-            {METHOD::PUT,
-             [](auto &req, auto &conn, auto path) {
-               return conn.put(path,
-                               req.body.has_value() ? req.body->data : "");
-             }},
-            {METHOD::PATCH,
-             [](auto &req, auto &conn, auto path) {
-               return conn.patch(path,
+      const static std::unordered_map<
+          METHOD, std::function<RestClient::Response(
+                      HTTP::Response &, RestClient::Connection &, std::string)>>
+          methods = {
+              {METHOD::GET,
+               [](auto &req, auto &conn, auto path) { return conn.get(path); }},
+              {METHOD::POST,
+               [](auto &req, auto &conn, auto path) {
+                 return conn.post(path,
+                                  req.body.has_value() ? req.body->data : "");
+               }},
+              {METHOD::PUT,
+               [](auto &req, auto &conn, auto path) {
+                 return conn.put(path,
                                  req.body.has_value() ? req.body->data : "");
-             }},
-            {METHOD::DELETE,
-             [](auto &req, auto &conn, auto path) { return conn.del(path); }},
-            {METHOD::HEAD,
-             [](auto &req, auto &conn, auto path) { return conn.head(path); }},
-            {METHOD::OPTIONS, [](auto &req, auto &conn,
-                                 auto path) { return conn.options(path); }},
-        };
+               }},
+              {METHOD::PATCH,
+               [](auto &req, auto &conn, auto path) {
+                 return conn.patch(path,
+                                   req.body.has_value() ? req.body->data : "");
+               }},
+              {METHOD::DELETE,
+               [](auto &req, auto &conn, auto path) { return conn.del(path); }},
+              {METHOD::HEAD, [](auto &req, auto &conn,
+                                auto path) { return conn.head(path); }},
+              {METHOD::OPTIONS, [](auto &req, auto &conn,
+                                   auto path) { return conn.options(path); }},
+          };
 
-    std::string full_path;
+      std::string full_path;
 
-    if (auto last_char = base_url().back();
-        last_char != '/' && params.path.front() != '/') {
-      full_path += '/';
-    }
+      if (auto last_char = base_url().back();
+          last_char != '/' && params.path.front() != '/') {
+        full_path += '/';
+      }
 
-    full_path += params.path;
+      full_path += params.path;
 
-    if (params.params.has_value()) {
-      full_path += params.params.value().get_url_component();
-    }
-
-    auto &req_fn = methods.at(method);
-    auto res = req_fn(req, conn, full_path);
+      if (params.params.has_value()) {
+        full_path += params.params.value().get_url_component();
+      }
 
 #ifndef NDEBUG
-    std::cerr << std::format("{}:{}:{}: client timeout={}; base_url={}\n",
-                             __FILE__, __LINE__, __func__,
-                             conn.GetInfo().timeout, conn.GetInfo().baseUrl);
-    std::cerr << std::format("{}:{}:{}: Request: url={} -> code={}\n", __FILE__,
-                             __LINE__, __func__, full_path, res.code);
-    for (auto &[key, value] : res.headers) {
-      std::cerr << std::format("{}:{}:{}: Header: <{}, {}>\n", __FILE__,
-                               __LINE__, __func__, key, value);
-    }
-    std::cerr << std::format("{}:{}:{}: Body: {}\n", __FILE__, __LINE__,
-                             __func__, res.body);
+      // std::cerr << std::format("{}:{}:{}: Request: url={}\n", __FILE__,
+      //                          __LINE__, __func__, full_path);
 #endif
 
-    req.status = res.code;
+      auto &req_fn = methods.at(method);
 
-    req.body = HTTP::Body{res.body};
+      response.start_time = std::chrono::system_clock::now();
+      auto res = req_fn(response, conn, full_path);
+      response.end_time = std::chrono::system_clock::now();
 
-    if (res.headers.contains("Content-Type")) {
-      req.body->content_type = res.headers.at("Content-Type");
-    }
+#ifndef NDEBUG
+      // std::cerr << std::format("{}:{}:{}: client timeout={}; base_url={}\n",
+      //                          __FILE__, __LINE__, __func__,
+      //                          conn.GetInfo().timeout,
+      //                          conn.GetInfo().baseUrl);
+      // std::cerr << std::format("{}:{}:{}: Request: url={} -> code={}\n",
+      //                          __FILE__, __LINE__, __func__, full_path,
+      //                          res.code);
+      // for (auto &[key, value] : res.headers) {
+      //   std::cerr << std::format("{}:{}:{}: Header: <{}, {}>\n", __FILE__,
+      //                            __LINE__, __func__, key, value);
+      // }
+      // std::cerr << std::format("{}:{}:{}: Body: {}\n", __FILE__, __LINE__,
+      //                          __func__, res.body);
+#endif
 
-    if (!res.headers.empty()) {
-      req.headers = HTTP::Headers{res.headers};
-    }
+      response.status = res.code;
 
-    co_return req;
+      response.body = HTTP::Body{res.body};
+
+      if (res.headers.contains("Content-Type")) {
+        response.body->content_type = res.headers.at("Content-Type");
+      }
+
+      if (!res.headers.empty()) {
+        response.headers = HTTP::Headers{res.headers};
+      }
+
+      return response;
+    };
+
+    auto sch = thread_pool.get_scheduler();
+
+    auto [val] =
+        stdexec::sync_wait(stdexec::then(stdexec::schedule(sch), sync_op))
+            .value();
+
+    co_return val;
   }
 
 private:

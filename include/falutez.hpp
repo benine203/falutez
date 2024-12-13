@@ -764,9 +764,26 @@ struct Response {
   const METHOD method;
   const std::string path;
 
+  const std::chrono::system_clock::time_point init_time =
+      std::chrono::system_clock::now();
+
+  std::chrono::system_clock::time_point start_time;
+
   HTTP::STATUS status;
   std::optional<Headers> headers;
   std::optional<Body> body;
+
+  std::chrono::system_clock::time_point end_time;
+
+  operator bool() const {
+    if (!status.error() && end_time.time_since_epoch().count() == 0)
+      throw std::logic_error{
+          std::format("{}:{}:{}: inconsistent state; timing "
+                      "metadata not set by implementation",
+                      "/home/deb/src/falutez/include/falutez/falutez-types.hpp",
+                      84, __func__)};
+    return !!status;
+  }
 
   friend std::ostream &operator<<(std::ostream &os, Response const &req) {
     os << req.method << " " << req.path << " -> " << req.status;

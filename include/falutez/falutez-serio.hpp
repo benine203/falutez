@@ -16,7 +16,7 @@
 #include <nlohmann/json.hpp>
 #endif
 
-#include "falutez/falutez-types-std.hpp"
+#include <falutez/falutez-types-std.hpp>
 
 namespace XSON {
 
