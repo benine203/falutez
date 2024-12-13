@@ -98,12 +98,20 @@ struct Headers {
     return headers == other.headers;
   }
 
-  friend std::ostream &operator<<(std::ostream &os, Headers const &headers) {
-    for (auto &[key, value] : headers.headers) {
-      os << key << ": " << value << "\n";
+  XSON::JSON to_json() const {
+    auto json = XSON::JSON{};
+    for (auto &[key, value] : headers) {
+      json[key] = value;
     }
+    return json;
+  }
+
+  friend std::ostream &operator<<(std::ostream &os, Headers const &headers) {
+    os << headers.to_json().dump().value_or("undefined");
     return os;
   }
+
+  std::string str() const { return to_json().dump().value_or("undefined"); }
 
   // conversion
   operator std::map<std::string, std::string>() const {

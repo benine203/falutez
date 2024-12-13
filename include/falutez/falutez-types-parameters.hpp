@@ -122,21 +122,11 @@ struct Parameters {
   }
 
   friend std::ostream &operator<<(std::ostream &os, Parameters const &params) {
-    for (auto &[key, value] : params.params) {
-      os << key << ": ";
-      if (std::holds_alternative<int128_t>(value)) {
-        os << std::format("{}", std::get<int128_t>(value));
-      } else if (std::holds_alternative<double>(value)) {
-        os << std::get<double>(value);
-      } else if (std::holds_alternative<std::string>(value)) {
-        os << std::get<std::string>(value);
-      } else if (std::holds_alternative<bool>(value)) {
-        os << std::get<bool>(value);
-      }
-      os << "\n";
-    }
+    os << params.to_json().dump().value_or("undefined");
     return os;
   }
+
+  std::string str() const { return to_json().dump().value_or("undefined"); }
 
   std::string get_url_component() const {
     std::string url_component;

@@ -107,6 +107,19 @@ struct RequestSpec {
   std::optional<Parameters> params;
   std::optional<Headers> headers;
   std::optional<Body> body;
+
+  XSON::JSON to_json() const {
+    auto json = XSON::JSON{};
+    json["method"] = to_string(method);
+    json["path"] = std::string{path};
+    if (params.has_value())
+      json["params"] = params.value().to_json();
+    if (headers.has_value())
+      json["headers"] = headers.value().to_json();
+    if (body.has_value())
+      json["body"] = body.value().data;
+    return json;
+  }
 };
 
 /**

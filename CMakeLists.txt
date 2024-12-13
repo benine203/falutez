@@ -153,15 +153,15 @@ enable_testing()
 
 add_executable(test-serio tests/test-serio.cpp)
 target_link_libraries(test-serio PRIVATE falutez GTest::gtest)
-#gtest_discover_tests(test-serio)
+gtest_discover_tests(test-serio)
 
 add_executable(test-falutez tests/test-falutez.cpp)
 target_link_libraries(test-falutez PRIVATE falutez GTest::gtest)
-#gtest_discover_tests(test-falutez)
+gtest_discover_tests(test-falutez)
 
 add_executable(test-falutez-restclient tests/test-falutez-restclient.cpp)
 target_link_libraries(test-falutez-restclient PRIVATE falutez GTest::gtest)
-#gtest_discover_tests(test-falutez-restclient)
+gtest_discover_tests(test-falutez-restclient)
 
 
 #############################################
