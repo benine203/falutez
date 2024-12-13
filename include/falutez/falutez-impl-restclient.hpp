@@ -48,6 +48,8 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
         // }
         if (!config->user_agent.empty())
           thr_conn.SetUserAgent(config->user_agent);
+        if (!config->validate_cert)
+          thr_conn.SetVerifyPeer(false);
 #ifndef NDEBUG
         // std::cerr << std::format(
         //     "{}:{}:{}: threadpool connection initialized with timeout={}\n",

@@ -19,6 +19,7 @@ struct GenericClientConfig {
   std::pair<bool, std::chrono::milliseconds> keepalive;
   Headers headers;
   std::string user_agent;
+  bool validate_cert = true;
 };
 
 template <typename TConfig = GenericClientConfig> struct GenericClient {
