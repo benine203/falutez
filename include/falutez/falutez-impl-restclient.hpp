@@ -1,6 +1,7 @@
 #pragma once
 
 #ifndef _UNIHEADER_BUILD_
+#include <exec/static_thread_pool.hpp>
 #include <iostream>
 #include <restclient-cpp/connection.h>
 #include <restclient-cpp/restclient.h>
@@ -11,48 +12,48 @@
 
 namespace HTTP {
 
-struct RestClientClientConfig : public GenericClientConfig {};
+struct RestClientClientConfig : public GenericClientConfig {
+  uint32_t thread_pool_size = 1;
+};
 
 struct RestClientClient : public GenericClient<RestClientClientConfig> {
 
   RestClientClient() = delete;
 
-  ~RestClientClient() override {
-    if (conn) {
-      conn->Terminate();
-    }
-    GenericClient::~GenericClient();
-  }
+  ~RestClientClient() override { GenericClient::~GenericClient(); }
 
   RestClientClient(RestClientClientConfig params)
-      : GenericClient{std::make_shared<RestClientClientConfig>(params)} {
+      : GenericClient{std::make_shared<RestClientClientConfig>(params)},
+        thread_pool{params.thread_pool_size} {
     RestClient::init();
-    conn = std::make_unique<RestClient::Connection>(config->base_url);
-    if (config->timeout.count() != 0) {
-      conn->SetTimeout(
-          std::chrono::duration_cast<std::chrono::seconds>(config->timeout)
-              .count());
-    }
-
-    if (config->keepalive.first) {
-      // curl automatically reuses connections
-    }
   }
 
-  RestClientClient(RestClientClient &&) = default;
-  RestClientClient &operator=(RestClientClient &&) = default;
+  RestClientClient(RestClientClient &&) = delete;
+  RestClientClient &operator=(RestClientClient &&) = delete;
   RestClientClient(const RestClientClient &) = delete;
   RestClientClient &operator=(const RestClientClient &) = delete;
 
-  //// we are satisfied with the base implementations
-  // void set_base_url(std::string_view) override;
-  // void set_timeout(std::chrono::milliseconds) override;
-  // void set_keepalive(std::pair<bool, std::chrono::milliseconds>) override;
-  // void set_headers(Headers) override;
+  AsyncResponse request(METHOD method, RequestSpec params) override {
+    // construct a thread-local connection object for each thread in the pool.
+    // and apply any necessary configuration.
+    static thread_local RestClient::Connection conn = [this]() {
+      auto thr_conn = RestClient::Connection{config->base_url};
+      if (config->timeout.count() != 0)
+        thr_conn.SetTimeout(
+            std::chrono::duration_cast<std::chrono::seconds>(config->timeout)
+                .count());
+      // if (config->keepalive.first) {
+      //   // curl automatically reuses connections
+      // }
+#ifndef NDEBUG
+      std::cerr << std::format(
+          "{}:{}:{}: threadpool connection initialized with timeout={}\n",
+          __FILE__, __LINE__, __func__, thr_conn.GetInfo().timeout);
+#endif
+      return thr_conn;
+    }();
 
-  Request request(METHOD method, RequestSpec params) override {
-
-    RequestInfo req{.method = method, .path = std::string{params.path}};
+    Response req{.method = method, .path = std::string{params.path}};
     req.headers = config->headers;
     req.body = std::move(params.body);
 
@@ -62,13 +63,12 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
       if (params.headers.has_value())
         combined_headers.merge(params.headers.value());
 
-      conn->SetHeaders(std::move(combined_headers));
+      conn.SetHeaders(std::move(combined_headers));
     }
 
     static std::unordered_map<
-        METHOD,
-        std::function<RestClient::Response(
-            HTTP::RequestInfo &, RestClient::Connection &, std::string)>>
+        METHOD, std::function<RestClient::Response(
+                    HTTP::Response &, RestClient::Connection &, std::string)>>
         methods = {
             {METHOD::GET,
              [](auto &req, auto &conn, auto path) { return conn.get(path); }},
@@ -109,12 +109,12 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
     }
 
     auto &req_fn = methods.at(method);
-    auto res = req_fn(req, *conn.get(), full_path);
+    auto res = req_fn(req, conn, full_path);
 
 #ifndef NDEBUG
     std::cerr << std::format("{}:{}:{}: client timeout={}; base_url={}\n",
                              __FILE__, __LINE__, __func__,
-                             conn->GetInfo().timeout, conn->GetInfo().baseUrl);
+                             conn.GetInfo().timeout, conn.GetInfo().baseUrl);
     std::cerr << std::format("{}:{}:{}: Request: url={} -> code={}\n", __FILE__,
                              __LINE__, __func__, full_path, res.code);
     for (auto &[key, value] : res.headers) {
@@ -141,7 +141,8 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
   }
 
 private:
-  std::unique_ptr<RestClient::Connection> conn;
+  // std::unique_ptr<RestClient::Connection> conn;
+  exec::static_thread_pool thread_pool;
 };
 
 } // namespace HTTP

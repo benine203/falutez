@@ -52,7 +52,7 @@ struct Body {
 };
 
 /**
- * @brief Request - A constructed request that may be:
+ * @brief Response - A pipelined request that may be:
  *  -  completed (body and headers are populated):
        -  status.is_errno() == false
        -  body.has_value() if status::operator bool() == true
@@ -62,7 +62,7 @@ struct Body {
        indicates a system-level error before the HTTP layer (e.g. caught
        exception or failed malloc)
  */
-struct RequestInfo {
+struct Response {
   const METHOD method;
   const std::string path;
 
@@ -70,7 +70,7 @@ struct RequestInfo {
   std::optional<Headers> headers;
   std::optional<Body> body;
 
-  friend std::ostream &operator<<(std::ostream &os, RequestInfo const &req) {
+  friend std::ostream &operator<<(std::ostream &os, Response const &req) {
     os << req.method << " " << req.path << " -> " << req.status;
     return os;
   }
@@ -79,7 +79,7 @@ struct RequestInfo {
 // using Request = std::packaged_task<HTTP::expected<RequestInfo,
 // HTTP::STATUS>>;
 
-using Request = exec::task<HTTP::expected<RequestInfo, HTTP::STATUS>>;
+using AsyncResponse = exec::task<HTTP::expected<Response, HTTP::STATUS>>;
 
 /**
  * @brief RequestSpec - holds all the information needed to construct

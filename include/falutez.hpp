@@ -760,7 +760,7 @@ struct Body {
 
   Body() = default;
 };
-struct RequestInfo {
+struct Response {
   const METHOD method;
   const std::string path;
 
@@ -768,13 +768,13 @@ struct RequestInfo {
   std::optional<Headers> headers;
   std::optional<Body> body;
 
-  friend std::ostream &operator<<(std::ostream &os, RequestInfo const &req) {
+  friend std::ostream &operator<<(std::ostream &os, Response const &req) {
     os << req.method << " " << req.path << " -> " << req.status;
     return os;
   }
 };
 
-using Request = exec::task<HTTP::expected<RequestInfo, HTTP::STATUS>>;
+using AsyncResponse = exec::task<HTTP::expected<Response, HTTP::STATUS>>;
 
 struct RequestSpec {
   std::string_view path;
@@ -853,7 +853,7 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
 
   virtual Headers const &headers() const { return config->headers; }
 
-  virtual Request request(METHOD method, RequestSpec reqParams) {
+  virtual AsyncResponse request(METHOD method, RequestSpec reqParams) {
     throw std::runtime_error{std::format(
         "{}:{}:{}: request() not implemented",
         "/home/deb/src/falutez/include/falutez/falutez-generic-client.hpp", 66,
