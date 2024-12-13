@@ -120,6 +120,13 @@ struct RequestSpec {
       json["body"] = body.value().data;
     return json;
   }
+
+  friend std::ostream &operator<<(std::ostream &os, RequestSpec const &req) {
+    os << req.to_json().dump().value_or("undefined");
+    return os;
+  }
+
+  std::string str() const { return to_json().dump().value_or("undefined"); }
 };
 
 /**
