@@ -1,17 +1,22 @@
 #pragma once
 
+#ifndef _UNIHEADER_BUILD_
 #include <concepts>
 #include <format>
+
 #include <glaze/core/context.hpp>
 #include <glaze/core/opts.hpp>
 #include <glaze/core/read.hpp>
+#include <glaze/glaze.hpp>
 #include <glaze/json/json_t.hpp>
 #include <glaze/json/ptr.hpp>
+
 #include <string_view>
 
 #include <nlohmann/json.hpp>
+#endif
 
-#include <glaze/glaze.hpp>
+#include "falutez/falutez-types-std.hpp"
 
 namespace XSON {
 
@@ -37,18 +42,41 @@ concept XSON = requires(TXSONImpl obj) {
   { obj.at(std::string_view{}) } -> std::common_reference_with<TXSONImpl>;
 
   /// @brief templated get<> methods
-  { obj.template get<int64_t>() } -> std::same_as<int64_t>;
-  { obj.template get<uint64_t>() } -> std::same_as<uint64_t>;
-  { obj.template get<int32_t>() } -> std::same_as<int32_t>;
-  { obj.template get<uint32_t>() } -> std::same_as<uint32_t>;
-  { obj.template get<int16_t>() } -> std::same_as<int16_t>;
-  { obj.template get<uint16_t>() } -> std::same_as<uint16_t>;
-  { obj.template get<int8_t>() } -> std::same_as<int8_t>;
-  { obj.template get<uint8_t>() } -> std::same_as<uint8_t>;
-  { obj.template get<bool>() } -> std::same_as<bool>;
-  { obj.template get<float>() } -> std::same_as<float>;
-  { obj.template get<double>() } -> std::same_as<double>;
-  { obj.template get<std::string>() } -> std::same_as<std::string>;
+  {
+    std::decay_t<decltype(obj.template get<int8_t>())>{}
+  } -> std::same_as<int8_t>;
+  {
+    std::decay_t<decltype(obj.template get<int16_t>())>{}
+  } -> std::same_as<int16_t>;
+  {
+    std::decay_t<decltype(obj.template get<int32_t>())>{}
+  } -> std::same_as<int32_t>;
+  {
+    std::decay_t<decltype(obj.template get<int64_t>())>{}
+  } -> std::same_as<int64_t>;
+  {
+    std::decay_t<decltype(obj.template get<uint8_t>())>{}
+  } -> std::same_as<uint8_t>;
+  {
+    std::decay_t<decltype(obj.template get<uint16_t>())>{}
+  } -> std::same_as<uint16_t>;
+  {
+    std::decay_t<decltype(obj.template get<uint32_t>())>{}
+  } -> std::same_as<uint32_t>;
+  {
+    std::decay_t<decltype(obj.template get<uint64_t>())>{}
+  } -> std::same_as<uint64_t>;
+  { std::decay_t<decltype(obj.template get<bool>())>{} } -> std::same_as<bool>;
+  {
+    std::decay_t<decltype(obj.template get<float>())>{}
+  } -> std::floating_point;
+  {
+    std::decay_t<decltype(obj.template get<double>())>{}
+  } -> std::floating_point;
+
+  {
+    std::decay_t<decltype(obj.template get<std::string>())>{}
+  } -> std::same_as<std::string>;
 
   /// @brief refs returned by operator[] should directly comparable to
   /// at least these types.
@@ -153,6 +181,11 @@ struct GLZ : public glz::json_t {
 
   GLZ &operator=(const char *other) {
     *static_cast<glz::json_t *>(this) = std::string_view{other};
+    return *this;
+  }
+
+  GLZ &operator=(HTTP::int128_t other) {
+    *static_cast<glz::json_t *>(this) = static_cast<double>(other);
     return *this;
   }
 

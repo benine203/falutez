@@ -4,7 +4,7 @@
 #include <cpptrace.hpp>
 #include <utils.hpp>
 
-#include <falutez/serio.hpp>
+#include <falutez/falutez-serio.hpp>
 
 // templated test case
 using XSONTypes = ::testing::Types<XSON::NLH, XSON::GLZ>;

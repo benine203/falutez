@@ -3,10 +3,13 @@
  *          along with some baseline data items likely to be useful
  *          across all implementations
  */
+
+#ifndef _UNIHEADER_BUILD_
 #include <chrono>
 #include <string>
+#endif
 
-#include "falutez/falutez-types.hpp"
+#include <falutez/falutez-types.hpp>
 
 namespace HTTP {
 
@@ -19,13 +22,17 @@ struct GenericClientConfig {
 
 template <typename TConfig = GenericClientConfig> struct GenericClient {
 
-  virtual ~GenericClient() = default;
+  virtual ~GenericClient() {
+    if (config) {
+      config.reset();
+    }
+  }
 
   GenericClient() = delete;
 
-  GenericClient(TConfig params) : config{std::make_unique<TConfig>(params)} {}
+  GenericClient(TConfig params) : config{std::make_shared<TConfig>(params)} {}
 
-  GenericClient(std::shared_ptr<TConfig> params) : config{params} {}
+  GenericClient(std::shared_ptr<TConfig> params) : config{std::move(params)} {}
 
   virtual void set_base_url(std::string_view base_url) {
     config->base_url = base_url;
@@ -54,8 +61,11 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
 
   virtual Headers const &headers() const { return config->headers; }
 
-  static Request REQ(METHOD method, std::string_view path,
-                     std::string_view body = {}) {}
+  virtual std::function<Request()> request(METHOD method,
+                                           RequestSpec reqParams) {
+    throw std::runtime_error{std::format("{}:{}:{}: request() not implemented",
+                                         __FILE__, __LINE__, __func__)};
+  }
 
 protected:
   std::shared_ptr<TConfig> config;

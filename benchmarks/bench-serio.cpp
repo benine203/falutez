@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include <falutez/serio.hpp>
+#include <falutez/falutez-serio.hpp>
 
 // templated benchmark over the type of XSON implementation
 template <typename TXSONImpl> void BM_XSON_SERIALIZE(benchmark::State &state) {

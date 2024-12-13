@@ -1,7 +1,12 @@
 #pragma once
 
+#include <unordered_map>
+#ifndef _UNIHEADER_BUILD_
+#include <compare>
 #include <cstdint>
+#include <cstring>
 #include <string_view>
+#endif
 
 namespace HTTP {
 
@@ -84,11 +89,13 @@ struct STATUS {
     NETWORK_AUTHENTICATION_REQUIRED = 511
   };
 
-  operator bool() const noexcept {
+  explicit operator bool() const noexcept {
     return code >= OK && code < MULTIPLE_CHOICES;
   }
 
-  int16_t operator*() const noexcept { return code; }
+  bool error() const noexcept { return !operator bool(); }
+
+  bool is_errno() const noexcept { return code < NONE; }
 
   auto operator->() const noexcept {
     struct Info {
@@ -96,86 +103,94 @@ struct STATUS {
       std::string_view str;
     };
 
-    static Info infos[] = {
-        {NONE, "None"},
+    if (code < NONE) {
+      return Info{
+          .code = code,
+          .str = strerror(code),
+      };
+    }
 
-        [CONTINUE] = {CONTINUE, "Continue"},
-        [SWITCHING_PROTOCOLS] = {SWITCHING_PROTOCOLS, "Switching Protocols"},
-        [PROCESSING] = {PROCESSING, "Processing"},
-        [EARLY_HINTS] = {EARLY_HINTS, "Early Hints"},
-        [OK] = {OK, "OK"},
-        [CREATED] = {CREATED, "Created"},
-        [ACCEPTED] = {ACCEPTED, "Accepted"},
-        [NON_AUTHORITATIVE_INFORMATION] = {NON_AUTHORITATIVE_INFORMATION,
-                                           "Non-Authoritative Information"},
-        [NO_CONTENT] = {NO_CONTENT, "No Content"},
-        [RESET_CONTENT] = {RESET_CONTENT, "Reset Content"},
-        [PARTIAL_CONTENT] = {PARTIAL_CONTENT, "Partial Content"},
-        [MULTI_STATUS] = {MULTI_STATUS, "Multi-Status"},
-        [ALREADY_REPORTED] = {ALREADY_REPORTED, "Already Reported"},
-        [IM_USED] = {IM_USED, "IM Used"},
-        [MULTIPLE_CHOICES] = {MULTIPLE_CHOICES, "Multiple Choices"},
-        [MOVED_PERMANENTLY] = {MOVED_PERMANENTLY, "Moved Permanently"},
-        [FOUND] = {FOUND, "Found"},
-        [SEE_OTHER] = {SEE_OTHER, "See Other"},
-        [NOT_MODIFIED] = {NOT_MODIFIED, "Not Modified"},
-        [USE_PROXY] = {USE_PROXY, "Use Proxy"},
-        [SWITCH_PROXY] = {SWITCH_PROXY, "Switch Proxy"},
-        [TEMPORARY_REDIRECT] = {TEMPORARY_REDIRECT, "Temporary Redirect"},
-        [PERMANENT_REDIRECT] = {PERMANENT_REDIRECT, "Permanent Redirect"},
-        [BAD_REQUEST] = {BAD_REQUEST, "Bad Request"},
-        [UNAUTHORIZED] = {UNAUTHORIZED, "Unauthorized"},
-        [PAYMENT_REQUIRED] = {PAYMENT_REQUIRED, "Payment Required"},
-        [FORBIDDEN] = {FORBIDDEN, "Forbidden"},
-        [NOT_FOUND] = {NOT_FOUND, "Not Found"},
-        [METHOD_NOT_ALLOWED] = {METHOD_NOT_ALLOWED, "Method Not Allowed"},
-        [NOT_ACCEPTABLE] = {NOT_ACCEPTABLE, "Not Acceptable"},
-        [PROXY_AUTHENTICATION_REQUIRED] = {PROXY_AUTHENTICATION_REQUIRED,
-                                           "Proxy Authentication Required"},
-        [REQUEST_TIMEOUT] = {REQUEST_TIMEOUT, "Request Timeout"},
-        [CONFLICT] = {CONFLICT, "Conflict"},
-        [GONE] = {GONE, "Gone"},
-        [LENGTH_REQUIRED] = {LENGTH_REQUIRED, "Length Required"},
-        [PRECONDITION_FAILED] = {PRECONDITION_FAILED, "Precondition Failed"},
-        [PAYLOAD_TOO_LARGE] = {PAYLOAD_TOO_LARGE, "Payload Too Large"},
-        [URI_TOO_LONG] = {URI_TOO_LONG, "URI Too Long"},
-        [UNSUPPORTED_MEDIA_TYPE] = {UNSUPPORTED_MEDIA_TYPE,
-                                    "Unsupported Media Type"},
-        [RANGE_NOT_SATISFIABLE] = {RANGE_NOT_SATISFIABLE,
-                                   "Range Not Satisfiable"},
-        [EXPECTATION_FAILED] = {EXPECTATION_FAILED, "Expectation Failed"},
-        [IM_A_TEAPOT] = {IM_A_TEAPOT, "I'm a teapot"},
-        [MISDIRECTED_REQUEST] = {MISDIRECTED_REQUEST, "Misdirected Request"},
-        [UNPROCESSABLE_ENTITY] = {UNPROCESSABLE_ENTITY, "Unprocessable Entity"},
-        [LOCKED] = {LOCKED, "Locked"},
-        [FAILED_DEPENDENCY] = {FAILED_DEPENDENCY, "Failed Dependency"},
-        [TOO_EARLY] = {TOO_EARLY, "Too Early"},
-        [UPGRADE_REQUIRED] = {UPGRADE_REQUIRED, "Upgrade Required"},
-        [PRECONDITION_REQUIRED] = {PRECONDITION_REQUIRED,
-                                   "Precondition Required"},
-        [TOO_MANY_REQUESTS] = {TOO_MANY_REQUESTS, "Too Many Requests"},
-        [REQUEST_HEADER_FIELDS_TOO_LARGE] = {REQUEST_HEADER_FIELDS_TOO_LARGE,
-                                             "Request Header Fields Too Large"},
-        [UNAVAILABLE_FOR_LEGAL_REASONS] = {UNAVAILABLE_FOR_LEGAL_REASONS,
-                                           "Unavailable For Legal Reasons"},
-        [INTERNAL_SERVER_ERROR] = {INTERNAL_SERVER_ERROR,
-                                   "Internal Server Error"},
-        [NOT_IMPLEMENTED] = {NOT_IMPLEMENTED, "Not Implemented"},
-        [BAD_GATEWAY] = {BAD_GATEWAY, "Bad Gateway"},
-        [SERVICE_UNAVAILABLE] = {SERVICE_UNAVAILABLE, "Service Unavailable"},
-        [GATEWAY_TIMEOUT] = {GATEWAY_TIMEOUT, "Gateway Timeout"},
-        [HTTP_VERSION_NOT_SUPPORTED] = {HTTP_VERSION_NOT_SUPPORTED,
-                                        "HTTP Version Not Supported"},
-        [VARIANT_ALSO_NEGOTIATES] = {VARIANT_ALSO_NEGOTIATES,
-                                     "Variant Also Negotiates"},
-        [INSUFFICIENT_STORAGE] = {INSUFFICIENT_STORAGE, "Insufficient Storage"},
-        [LOOP_DETECTED] = {LOOP_DETECTED, "Loop Detected"},
-        [NOT_EXTENDED] = {NOT_EXTENDED, "Not Extended"},
-        [NETWORK_AUTHENTICATION_REQUIRED] = {NETWORK_AUTHENTICATION_REQUIRED,
-                                             "Network Authentication Required"},
+    static std::unordered_map<int16_t, Info> infos = {
+        {NONE, {NONE, "<NONE>"}},
+
+        {CONTINUE, {CONTINUE, "Continue"}},
+        {SWITCHING_PROTOCOLS, {SWITCHING_PROTOCOLS, "Switching Protocols"}},
+        {PROCESSING, {PROCESSING, "Processing"}},
+        {EARLY_HINTS, {EARLY_HINTS, "Early Hints"}},
+        {OK, {OK, "OK"}},
+        {CREATED, {CREATED, "Created"}},
+        {ACCEPTED, {ACCEPTED, "Accepted"}},
+        {NON_AUTHORITATIVE_INFORMATION,
+         {NON_AUTHORITATIVE_INFORMATION, "Non-Authoritative Information"}},
+        {NO_CONTENT, {NO_CONTENT, "No Content"}},
+        {RESET_CONTENT, {RESET_CONTENT, "Reset Content"}},
+        {PARTIAL_CONTENT, {PARTIAL_CONTENT, "Partial Content"}},
+        {MULTI_STATUS, {MULTI_STATUS, "Multi-Status"}},
+        {ALREADY_REPORTED, {ALREADY_REPORTED, "Already Reported"}},
+        {IM_USED, {IM_USED, "IM Used"}},
+        {MULTIPLE_CHOICES, {MULTIPLE_CHOICES, "Multiple Choices"}},
+        {MOVED_PERMANENTLY, {MOVED_PERMANENTLY, "Moved Permanently"}},
+        {FOUND, {FOUND, "Found"}},
+        {SEE_OTHER, {SEE_OTHER, "See Other"}},
+        {NOT_MODIFIED, {NOT_MODIFIED, "Not Modified"}},
+        {USE_PROXY, {USE_PROXY, "Use Proxy"}},
+        {SWITCH_PROXY, {SWITCH_PROXY, "Switch Proxy"}},
+        {TEMPORARY_REDIRECT, {TEMPORARY_REDIRECT, "Temporary Redirect"}},
+        {PERMANENT_REDIRECT, {PERMANENT_REDIRECT, "Permanent Redirect"}},
+        {BAD_REQUEST, {BAD_REQUEST, "Bad Request"}},
+        {UNAUTHORIZED, {UNAUTHORIZED, "Unauthorized"}},
+        {PAYMENT_REQUIRED, {PAYMENT_REQUIRED, "Payment Required"}},
+        {FORBIDDEN, {FORBIDDEN, "Forbidden"}},
+        {NOT_FOUND, {NOT_FOUND, "Not Found"}},
+        {METHOD_NOT_ALLOWED, {METHOD_NOT_ALLOWED, "Method Not Allowed"}},
+        {NOT_ACCEPTABLE, {NOT_ACCEPTABLE, "Not Acceptable"}},
+        {PROXY_AUTHENTICATION_REQUIRED,
+         {PROXY_AUTHENTICATION_REQUIRED, "Proxy Authentication Required"}},
+        {REQUEST_TIMEOUT, {REQUEST_TIMEOUT, "Request Timeout"}},
+        {CONFLICT, {CONFLICT, "Conflict"}},
+        {GONE, {GONE, "Gone"}},
+        {LENGTH_REQUIRED, {LENGTH_REQUIRED, "Length Required"}},
+        {PRECONDITION_FAILED, {PRECONDITION_FAILED, "Precondition Failed"}},
+        {PAYLOAD_TOO_LARGE, {PAYLOAD_TOO_LARGE, "Payload Too Large"}},
+        {URI_TOO_LONG, {URI_TOO_LONG, "URI Too Long"}},
+        {UNSUPPORTED_MEDIA_TYPE,
+         {UNSUPPORTED_MEDIA_TYPE, "Unsupported Media Type"}},
+        {RANGE_NOT_SATISFIABLE,
+         {RANGE_NOT_SATISFIABLE, "Range Not Satisfiable"}},
+        {EXPECTATION_FAILED, {EXPECTATION_FAILED, "Expectation Failed"}},
+        {IM_A_TEAPOT, {IM_A_TEAPOT, "I'm a teapot"}},
+        {MISDIRECTED_REQUEST, {MISDIRECTED_REQUEST, "Misdirected Request"}},
+        {UNPROCESSABLE_ENTITY, {UNPROCESSABLE_ENTITY, "Unprocessable Entity"}},
+        {LOCKED, {LOCKED, "Locked"}},
+        {FAILED_DEPENDENCY, {FAILED_DEPENDENCY, "Failed Dependency"}},
+        {TOO_EARLY, {TOO_EARLY, "Too Early"}},
+        {UPGRADE_REQUIRED, {UPGRADE_REQUIRED, "Upgrade Required"}},
+        {PRECONDITION_REQUIRED,
+         {PRECONDITION_REQUIRED, "Precondition Required"}},
+        {TOO_MANY_REQUESTS, {TOO_MANY_REQUESTS, "Too Many Requests"}},
+        {REQUEST_HEADER_FIELDS_TOO_LARGE,
+         {REQUEST_HEADER_FIELDS_TOO_LARGE, "Request Header Fields Too Large"}},
+        {UNAVAILABLE_FOR_LEGAL_REASONS,
+
+         {UNAVAILABLE_FOR_LEGAL_REASONS, "Unavailable For Legal Reasons"}},
+        {INTERNAL_SERVER_ERROR,
+         {INTERNAL_SERVER_ERROR, "Internal Server Error"}},
+        {NOT_IMPLEMENTED, {NOT_IMPLEMENTED, "Not Implemented"}},
+        {BAD_GATEWAY, {BAD_GATEWAY, "Bad Gateway"}},
+        {SERVICE_UNAVAILABLE, {SERVICE_UNAVAILABLE, "Service Unavailable"}},
+        {GATEWAY_TIMEOUT, {GATEWAY_TIMEOUT, "Gateway Timeout"}},
+        {HTTP_VERSION_NOT_SUPPORTED,
+         {HTTP_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported"}},
+        {VARIANT_ALSO_NEGOTIATES,
+         {VARIANT_ALSO_NEGOTIATES, "Variant Also Negotiates"}},
+        {INSUFFICIENT_STORAGE, {INSUFFICIENT_STORAGE, "Insufficient Storage"}},
+        {LOOP_DETECTED, {LOOP_DETECTED, "Loop Detected"}},
+        {NOT_EXTENDED, {NOT_EXTENDED, "Not Extended"}},
+        {NETWORK_AUTHENTICATION_REQUIRED,
+         {NETWORK_AUTHENTICATION_REQUIRED, "Network Authentication Required"}},
     };
 
-    return &infos[code];
+    return infos.at(code);
   }
 
   STATUS &operator=(int16_t code) noexcept {
@@ -183,15 +198,22 @@ struct STATUS {
     return *this;
   }
 
-  bool operator==(const STATUS &other) const noexcept {
+  operator int16_t() const noexcept { return code; }
+
+  std::strong_ordering operator<=>(int16_t code) const noexcept {
+    return this->code <=> code;
+  }
+
+  std::strong_ordering operator<=>(STATUS const &other) const noexcept {
+    return code <=> other.code;
+  }
+
+  bool operator==(int16_t code) const noexcept { return this->code == code; }
+  bool operator==(STATUS const &other) const noexcept {
     return code == other.code;
   }
 
-  bool operator!=(const STATUS &other) const noexcept {
-    return code != other.code;
-  }
-
-  std::string_view str() const noexcept { return (*this)->str; }
+  std::string_view str() const noexcept { return operator->().str; }
 
 private:
   int16_t code = NONE;

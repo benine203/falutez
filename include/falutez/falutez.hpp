@@ -1,12 +1,8 @@
 #pragma once
 
+#ifndef _UNIHEADER_BUILD_
 #include <memory>
-
-#include <falutez/serio.hpp>
-
-#include <falutez/falutez-types.hpp>
-
-#include <falutez/falutez-http-status.hpp>
+#endif
 
 #include <falutez/falutez-generic-client.hpp>
 

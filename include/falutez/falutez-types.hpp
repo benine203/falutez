@@ -1,104 +1,96 @@
 #pragma once
 
+#ifndef _UNIHEADER_BUILD_
 #include <chrono>
+#include <exec/task.hpp>
+#include <sstream>
+#include <stdexec/execution.hpp>
 #include <string>
-#include <unordered_map>
+#endif
 
-#include "falutez/serio.hpp"
-
-#include "falutez/falutez-types.hpp"
+#include "falutez/falutez-http-status.hpp"
+#include <falutez/falutez-types-headers.hpp>
+#include <falutez/falutez-types-parameters.hpp>
+#include <falutez/falutez-types-std.hpp>
 
 namespace HTTP {
 
-enum class METHOD { GET, POST, PUT, DELETE };
+enum class METHOD {
 
-struct Headers {
+  GET,
+  POST,
+  PUT,
+  DELETE,
+  PATCH,
+  HEAD,
+  OPTIONS,
+  TRACE,
+};
 
-  /// construct from maps, other headers, or JSON
+inline std::ostream &operator<<(std::ostream &os, METHOD const &method) {
+  static constexpr auto method_names = std::array<std::string_view, 8>{
+      "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE"};
+  assert(static_cast<int>(method) < method_names.size());
+  os << method_names[static_cast<int>(method)];
+  return os;
+}
 
-  Headers(std::unordered_map<std::string, std::string> const &headers)
-      : headers{headers} {}
-  Headers(std::unordered_map<std::string, std::string> &&headers)
-      : headers{std::move(headers)} {}
-  Headers() = default;
-  Headers(Headers const &other) = default;
-  Headers(Headers &&other) = default;
-  Headers(XSON::XSON auto &json) { merge(json); }
+inline auto to_string(METHOD m) {
+  ::std::ostringstream ost;
+  ost << m;
+  return ost.str();
+}
 
-  Headers &operator=(Headers const &other) = default;
-  Headers &operator=(Headers &&other) = default;
+struct Body {
+  std::string content_type;
 
-  /// operator[] to access/mutate by key
-  std::string &operator[](std::string const &key) { return headers.at(key); }
-  std::string &operator[](std::string &&key) { return headers.at(key); }
-  template <class K> std::string &at(K &&key) {
-    return headers.at(std::forward<K>(key));
+  std::string data;
+
+  Body(std::string_view const &raw) { data = raw; }
+
+  Body() = default;
+};
+
+/**
+ * @brief Request - A constructed request that may be:
+ *  -  completed (body and headers are populated):
+       -  status.is_errno() == false
+       -  body.has_value() if status::operator bool() == true
+          (even if body is empty)
+       -  headers.has_value()
+    -  errored (status.is_errno() == true)
+       indicates a system-level error before the HTTP layer (e.g. caught
+       exception or failed malloc)
+ */
+struct RequestInfo {
+  const METHOD method;
+  const std::string path;
+
+  HTTP::STATUS status;
+  std::optional<Headers> headers;
+  std::optional<Body> body;
+
+  friend std::ostream &operator<<(std::ostream &os, RequestInfo const &req) {
+    os << req.method << " " << req.path << " -> " << req.status;
+    return os;
   }
+};
 
-  /// at() mutating or read-only access
-  std::string &at(std::string &&key) { return headers.at(key); }
-  std::string const &at(std::string const &key) const {
-    return headers.at(key);
-  }
-  template <class K> std::string const &at(K &&key) const {
-    return headers.at(std::forward<K>(key));
-  }
+// using Request = std::packaged_task<HTTP::expected<RequestInfo,
+// HTTP::STATUS>>;
 
-  /// other std::unordered_map methods
-  auto begin() { return headers.begin(); }
-  auto end() { return headers.end(); }
-  auto cbegin() const { return headers.cbegin(); }
-  auto cend() const { return headers.cend(); }
-  auto size() const { return headers.size(); }
-  auto empty() const { return headers.empty(); }
-  auto contains(std::string const &key) const { return headers.contains(key); }
-  auto clear() { headers.clear(); }
-  auto erase(std::string const &key) { return headers.erase(key); }
+using Request = exec::task<HTTP::expected<RequestInfo, HTTP::STATUS>>;
 
-  /// ingest JSON object into headers
-  void merge(XSON::XSON auto &json) {
-    for (auto &[key, value] : json.items()) {
-      if (value.is_string()) {
-        headers[key] = value.template get<std::string>();
-      } else if (value.is_number()) {
-        headers[key] = std::to_string(value.template get<double>());
-      } else if (value.is_boolean()) {
-        headers[key] = value.template get<bool>() ? "true" : "false";
-      } else {
-        headers[key] = value.serialize();
-      }
-    }
-  }
-
-  /// ingest from raw maps headers
-  void merge(std::unordered_map<std::string, std::string> const &other) {
-    for (auto &[key, value] : other) {
-      headers[key] = value;
-    }
-  }
-
-  /// merge from other Headers
-  void merge(Headers const &other) { merge(other.headers); }
-
-  /// operator shortcuts
-  Headers &operator+=(Headers const &other) {
-    merge(other);
-    return *this;
-  }
-
-  /// e.g.: `auto new_headers = base_headers + request_headers;`
-  Headers operator+(Headers const &other) const {
-    Headers result{*this};
-    result += other;
-    return result;
-  }
-
-  bool operator==(Headers const &other) const {
-    return headers == other.headers;
-  }
-
-private:
-  std::unordered_map<std::string, std::string> headers;
+/**
+ * @brief RequestSpec - holds all the information needed to construct
+ * requests
+ * @note  holds non-owning references to parameters where possible
+ */
+struct RequestSpec {
+  std::string_view path;
+  std::optional<Parameters> params;
+  std::optional<Headers> headers;
+  std::optional<Body> body;
 };
 
 /**
@@ -108,28 +100,23 @@ private:
  */
 template <typename TImpl>
 concept ClientImpl = requires(TImpl impl) {
+  // setters
   impl.set_base_url(std::string_view{});
   impl.set_timeout(std::chrono::milliseconds{});
   impl.set_keepalive(std::make_pair<bool, std::chrono::milliseconds>(
       true, std::chrono::milliseconds{1000}));
-
   impl.set_headers(Headers{});
 
+  // getters
   { impl.base_url() } -> std::convertible_to<std::string_view>;
   { impl.timeout() } -> std::convertible_to<std::chrono::milliseconds>;
   {
     impl.keepalive()
   } -> std::convertible_to<std::pair<bool, std::chrono::milliseconds>>;
   { impl.headers() } -> std::convertible_to<Headers>;
+
+  // requests
+  impl.request(METHOD::GET, RequestSpec{});
 };
 
-struct Request {
-  METHOD method;
-
-  std::string path;
-
-  Headers headers;
-
-  // BODY body;
-};
 } // namespace HTTP
