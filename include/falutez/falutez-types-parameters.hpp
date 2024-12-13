@@ -10,6 +10,10 @@
 #include <falutez/falutez-types-std.hpp>
 
 namespace HTTP {
+
+/**
+ * @brief Parameters - path-based parameters for a request URL
+ */
 struct Parameters {
   using value_type =
       std::unordered_map<std::string_view,

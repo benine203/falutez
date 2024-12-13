@@ -46,6 +46,8 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
         // if (config->keepalive.first) {
         //   // curl automatically reuses connections
         // }
+        if (!config->user_agent.empty())
+          thr_conn.SetUserAgent(config->user_agent);
 #ifndef NDEBUG
         // std::cerr << std::format(
         //     "{}:{}:{}: threadpool connection initialized with timeout={}\n",

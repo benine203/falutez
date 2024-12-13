@@ -570,6 +570,7 @@ private:
 
 } // namespace HTTP
 namespace HTTP {
+
 struct Parameters {
   using value_type =
       std::unordered_map<std::string_view,
@@ -827,6 +828,7 @@ struct GenericClientConfig {
   std::chrono::milliseconds timeout;
   std::pair<bool, std::chrono::milliseconds> keepalive;
   Headers headers;
+  std::string user_agent;
 };
 
 template <typename TConfig = GenericClientConfig> struct GenericClient {
@@ -860,6 +862,10 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
     config->headers = std::move(headers);
   }
 
+  virtual void set_user_agent(std::string_view user_agent) {
+    config->user_agent = user_agent;
+  }
+
   virtual std::string base_url() const { return config->base_url; }
 
   virtual std::chrono::milliseconds timeout() const { return config->timeout; }
@@ -873,9 +879,11 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
   virtual AsyncResponse request(METHOD method, RequestSpec reqParams) {
     throw std::runtime_error{std::format(
         "{}:{}:{}: request() not implemented",
-        "/home/deb/src/falutez/include/falutez/falutez-generic-client.hpp", 66,
+        "/home/deb/src/falutez/include/falutez/falutez-generic-client.hpp", 71,
         __func__)};
   }
+
+  virtual std::string_view user_agent() const { return config->user_agent; }
 
 protected:
   std::shared_ptr<TConfig> config;
@@ -925,6 +933,10 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
           thr_conn.SetTimeout(
               std::chrono::duration_cast<std::chrono::seconds>(config->timeout)
                   .count());
+
+        if (!config->user_agent.empty())
+          thr_conn.SetUserAgent(config->user_agent);
+
         return thr_conn;
       }();
 

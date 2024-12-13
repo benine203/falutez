@@ -18,6 +18,7 @@ struct GenericClientConfig {
   std::chrono::milliseconds timeout;
   std::pair<bool, std::chrono::milliseconds> keepalive;
   Headers headers;
+  std::string user_agent;
 };
 
 template <typename TConfig = GenericClientConfig> struct GenericClient {
@@ -51,6 +52,10 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
     config->headers = std::move(headers);
   }
 
+  virtual void set_user_agent(std::string_view user_agent) {
+    config->user_agent = user_agent;
+  }
+
   virtual std::string base_url() const { return config->base_url; }
 
   virtual std::chrono::milliseconds timeout() const { return config->timeout; }
@@ -65,6 +70,8 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
     throw std::runtime_error{std::format("{}:{}:{}: request() not implemented",
                                          __FILE__, __LINE__, __func__)};
   }
+
+  virtual std::string_view user_agent() const { return config->user_agent; }
 
 protected:
   std::shared_ptr<TConfig> config;
