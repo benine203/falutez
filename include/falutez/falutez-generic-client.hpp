@@ -61,8 +61,7 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
 
   virtual Headers const &headers() const { return config->headers; }
 
-  virtual std::function<Request()> request(METHOD method,
-                                           RequestSpec reqParams) {
+  virtual Request request(METHOD method, RequestSpec reqParams) {
     throw std::runtime_error{std::format("{}:{}:{}: request() not implemented",
                                          __FILE__, __LINE__, __func__)};
   }

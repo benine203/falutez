@@ -5,6 +5,7 @@
 
 #include <falutez/falutez-impl-restclient.hpp>
 
+#include "falutez/falutez-types.hpp"
 #include "rest-server-fixture.hpp"
 
 TEST(FalRESTClient, InitDestroy) {
@@ -28,13 +29,14 @@ TEST_F(RESTFixture, Request) {
   HTTP::RestClientClient client{cfg};
 
   auto success_req = client.request(
-      kSuccessMethod, HTTP::RequestSpec{.path = kSuccessPath,
-                                        .params = HTTP::Parameters{},
-                                        .headers = HTTP::Headers{},
-                                        .body = HTTP::Body{}});
+      kSuccessMethod,
+      HTTP::RequestSpec{.path = kSuccessPath,
+                        .params = std::make_optional<HTTP::Parameters>(),
+                        .headers = std::make_optional<HTTP::Headers>(),
+                        .body = std::make_optional<HTTP::Body>()});
 
   auto [success_req_result] =
-      stdexec::sync_wait(std::move(success_req())).value();
+      stdexec::sync_wait(std::move(success_req)).value();
 
   EXPECT_FALSE(success_req_result.error());
 
@@ -45,13 +47,14 @@ TEST_F(RESTFixture, Request) {
   EXPECT_EQ(success_req_info.path, kSuccessPath);
   EXPECT_EQ(success_req_info.status, HTTP::STATUS::OK);
 
-  auto fail_req = client.request(kFailureMethod,
-                                 HTTP::RequestSpec{.path = "/",
-                                                   .params = HTTP::Parameters{},
-                                                   .headers = HTTP::Headers{},
-                                                   .body = HTTP::Body{}});
+  auto fail_req = client.request(
+      kFailureMethod,
+      HTTP::RequestSpec{.path = "/",
+                        .params = std::make_optional<HTTP::Parameters>(),
+                        .headers = std::make_optional<HTTP::Headers>(),
+                        .body = std::make_optional<HTTP::Body>()});
 
-  auto [fail_req_result] = stdexec::sync_wait(std::move(fail_req())).value();
+  auto [fail_req_result] = stdexec::sync_wait(std::move(fail_req)).value();
 
   EXPECT_FALSE(fail_req_result.error());
   EXPECT_FALSE(fail_req_result.value().status);

@@ -569,7 +569,6 @@ private:
 };
 
 } // namespace HTTP
-
 namespace HTTP {
 struct Parameters {
   using value_type =
@@ -854,11 +853,10 @@ template <typename TConfig = GenericClientConfig> struct GenericClient {
 
   virtual Headers const &headers() const { return config->headers; }
 
-  virtual std::function<Request()> request(METHOD method,
-                                           RequestSpec reqParams) {
+  virtual Request request(METHOD method, RequestSpec reqParams) {
     throw std::runtime_error{std::format(
         "{}:{}:{}: request() not implemented",
-        "/home/deb/src/falutez/include/falutez/falutez-generic-client.hpp", 67,
+        "/home/deb/src/falutez/include/falutez/falutez-generic-client.hpp", 66,
         __func__)};
   }
 
