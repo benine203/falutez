@@ -76,8 +76,8 @@ include(GoogleTest)
 
 # glob headers
 file(GLOB_RECURSE HEADERS include/falutez/*.hpp)
-set(HEADERS_ENTRY "${CMAKE_SOURCE_DIR}/include/falutez/falutez.hpp")
-set(UNIHEADER "${CMAKE_SOURCE_DIR}/include/falutez.hpp")
+set(HEADERS_ENTRY "${CMAKE_CURRENT_SOURCE_DIR}/include/falutez/falutez.hpp")
+set(UNIHEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/falutez.hpp")
 
 add_library(falutez STATIC src/falutez.cpp ${HEADERS})
 
@@ -109,7 +109,7 @@ target_compile_options(falutez PUBLIC -Wno-c99-designator)
 
 generate_export_header(falutez)
 
-set(EXTERNAL_INCLUDES "${CMAKE_BINARY_DIR}/external_includes.hpp")
+set(EXTERNAL_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/external_includes.hpp")
 
 add_custom_command(
   OUTPUT ${EXTERNAL_INCLUDES}
@@ -133,7 +133,7 @@ add_custom_command(
 
   COMMAND ${CMAKE_CXX_COMPILER} -E ${CXX_FLAGS} 
     -D_UNIHEADER_BUILD_ -std=gnu++20
-    -I${CMAKE_SOURCE_DIR}/include
+    -I${CMAKE_CURRENT_SOURCE_DIR}/include
     -I$ENV{VCPKG_ROOT}/installed/x64-linux/include
     ${HEADERS_ENTRY} | sh -c "sed '/^#/d'" > /tmp/uniheader && clang-format -i /tmp/uniheader
   
