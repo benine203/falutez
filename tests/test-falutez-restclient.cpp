@@ -32,15 +32,15 @@ TEST_F(RESTFixture, OneThreadMultipleReqs) {
   HTTP::RestClientClient client{cfg};
 
   auto req1 = client.request(
-      kSuccessMethod,
-      HTTP::RequestSpec{.path = kWaitPath,
+      HTTP::RequestSpec{.method = kSuccessMethod,
+                        .path = kWaitPath,
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
 
   auto req2 = client.request(
-      kSuccessMethod,
-      HTTP::RequestSpec{.path = kSuccessPath,
+      HTTP::RequestSpec{.method = kSuccessMethod,
+                        .path = kSuccessPath,
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
@@ -81,22 +81,22 @@ TEST_F(RESTFixture, MultiThreadPool) {
   HTTP::RestClientClient client{cfg};
 
   auto req1 = client.request(
-      kSuccessMethod,
-      HTTP::RequestSpec{.path = kWaitPath,
+      HTTP::RequestSpec{.method = kSuccessMethod,
+                        .path = kWaitPath,
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
 
   auto req2 = client.request(
-      kSuccessMethod,
-      HTTP::RequestSpec{.path = kWaitPath,
+      HTTP::RequestSpec{.method = kSuccessMethod,
+                        .path = kWaitPath,
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
 
   auto req3 = client.request(
-      kSuccessMethod,
-      HTTP::RequestSpec{.path = kWaitPath,
+      HTTP::RequestSpec{.method = kSuccessMethod,
+                        .path = kWaitPath,
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
@@ -152,8 +152,8 @@ TEST_F(RESTFixture, Request) {
   HTTP::RestClientClient client{cfg};
 
   auto success_req = client.request(
-      kSuccessMethod,
-      HTTP::RequestSpec{.path = kSuccessPath,
+      HTTP::RequestSpec{.method = kSuccessMethod,
+                        .path = kSuccessPath,
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
@@ -171,8 +171,8 @@ TEST_F(RESTFixture, Request) {
   EXPECT_EQ(success_req_info.status, HTTP::STATUS::OK);
 
   auto fail_req = client.request(
-      kFailureMethod,
-      HTTP::RequestSpec{.path = "/",
+      HTTP::RequestSpec{.method = kFailureMethod,
+                        .path = "/",
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});

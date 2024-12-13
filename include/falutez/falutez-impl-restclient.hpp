@@ -32,11 +32,11 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
   RestClientClient(const RestClientClient &) = delete;
   RestClientClient &operator=(const RestClientClient &) = delete;
 
-  AsyncResponse request(METHOD method, RequestSpec params) override {
+  AsyncResponse request(RequestSpec params) override {
     // construct a thread-local connection object for each thread in the pool.
     // and apply any necessary configuration.
 
-    auto sync_op = [this, method, params]() -> HTTP::Response {
+    auto sync_op = [this, params]() -> HTTP::Response {
       static thread_local RestClient::Connection conn = [this]() {
         auto thr_conn = RestClient::Connection{config->base_url};
         if (config->timeout.count() != 0)
@@ -58,7 +58,8 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
         return thr_conn;
       }();
 
-      Response response{.method = method, .path = std::string{params.path}};
+      Response response{.method = params.method,
+                        .path = std::string{params.path}};
       response.headers = config->headers;
       response.body = std::move(params.body);
 
@@ -118,7 +119,7 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
       //                          __LINE__, __func__, full_path);
 #endif
 
-      auto &req_fn = methods.at(method);
+      auto &req_fn = methods.at(params.method);
 
       response.start_time = std::chrono::system_clock::now();
       auto res = req_fn(response, conn, full_path);

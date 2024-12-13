@@ -102,6 +102,7 @@ using AsyncResponse = exec::task<HTTP::expected<Response, HTTP::STATUS>>;
  * @note  holds non-owning references to parameters where possible
  */
 struct RequestSpec {
+  HTTP::METHOD method;
   std::string_view path;
   std::optional<Parameters> params;
   std::optional<Headers> headers;
@@ -131,7 +132,7 @@ concept ClientImpl = requires(TImpl impl) {
   { impl.headers() } -> std::convertible_to<Headers>;
 
   // requests
-  impl.request(METHOD::GET, RequestSpec{});
+  impl.request(RequestSpec{});
 };
 
 } // namespace HTTP
