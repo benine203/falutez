@@ -8,27 +8,28 @@
 
 // templated test case
 using XSONTypes = ::testing::Types<XSON::NLH, XSON::GLZ>;
-template <typename T> struct XSONTest : public ::testing::Test {
-  T value_;
-};
+template <typename T> struct XSONTest : public ::testing::Test {};
 
 TYPED_TEST_SUITE(XSONTest, XSONTypes);
 
 TYPED_TEST(XSONTest, Access) {
-  TypeParam obj = this->value_;
+
+  TypeParam obj{};
 
   obj["key"] = "value";
   obj["key2"] = 42;
   obj["key3"] = 3.14;
   obj["key4"] = true;
+  obj["key5"] = std::vector<int>{1, 2, 3};
 
-  // Verify that the values are correctly set and retrieved using operator[]
+  // Verify that the values are correctly set and retrieved using
+  // operator[]
   EXPECT_EQ(obj["key"], "value");
   EXPECT_EQ(obj["key2"], 42);
   EXPECT_EQ(obj["key3"], 3.14);
 
-  // Verify that the values are correctly retrieved using the at() method with
-  // type conversion
+  // Verify that the values are correctly retrieved using the at()
+  //     method with type conversion
   EXPECT_EQ(obj.at("key").template get<std::string>(), "value");
   EXPECT_EQ(obj.at("key2").template get<int>(), 42);
   EXPECT_EQ(obj.at("key3").template get<double>(), 3.14);
@@ -43,11 +44,17 @@ TYPED_TEST(XSONTest, Access) {
 
   EXPECT_FALSE(obj.has_double_field("key2"));
   EXPECT_TRUE(obj.has_double_field("key3"));
+
+  EXPECT_FALSE(obj.at("key").is_array());
+  EXPECT_TRUE(obj["key5"].is_array());
+
+  auto &arr = obj["key5"].get_array();
+  EXPECT_EQ(arr.size(), 3);
 }
 
 TYPED_TEST(XSONTest, SERDE) {
 
-  TypeParam obj = this->value_;
+  TypeParam obj{};
 
   const auto serialized = R"({"key":"value","key2":42,"key3":3.14})";
   // Deserialize the object from a serialized string

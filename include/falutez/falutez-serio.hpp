@@ -1,9 +1,9 @@
 #pragma once
 
-#include <limits>
 #ifndef _UNIHEADER_BUILD_
 #include <concepts>
 #include <format>
+#include <limits>
 
 #include <glaze/core/context.hpp>
 #include <glaze/core/opts.hpp>
@@ -107,9 +107,20 @@ concept XSON = requires(TXSONImpl obj) {
   obj.has_number_field(std::string_view{});
 
   obj.has_string_field(std::string_view{});
+
+  obj.is_array();
+
+  obj.get_array();
 };
 
 struct NLH : public nlohmann::json {
+  NLH() = default;
+  NLH(NLH const &other) : nlohmann::json(other) {}
+  NLH(NLH &&other) : nlohmann::json(std::move(other)) {}
+
+  NLH(nlohmann::json const &other) : nlohmann::json(other) {}
+  NLH(nlohmann::json &&other) : nlohmann::json(std::move(other)) {}
+
   std::string serialize(bool pretty = false) const {
     return dump(pretty ? 2 : -1);
   }
@@ -133,6 +144,95 @@ struct NLH : public nlohmann::json {
 
   bool has_string_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_string();
+  }
+
+  NLH &get_array() {
+    if (!this->is_array())
+      throw std::runtime_error{
+          std::format("{}:{}:{}: not an array", __FILE__, __LINE__, __func__)};
+    return *this;
+  }
+
+  NLH const &get_array() const {
+    if (!this->is_array())
+      throw std::runtime_error{
+          std::format("{}:{}:{}: not an array", __FILE__, __LINE__, __func__)};
+    return *this;
+  }
+
+  NLH &operator[](const char *key) {
+    return static_cast<NLH &>(nlohmann::json::operator[](key));
+  }
+
+  NLH const &operator[](const char *key) const {
+    return static_cast<NLH const &>(nlohmann::json::operator[](key));
+  }
+
+  NLH &operator[](std::string_view key) {
+    return static_cast<NLH &>(nlohmann::json::operator[](key));
+  }
+
+  NLH const &operator[](std::string_view key) const {
+    return static_cast<NLH const &>(nlohmann::json::operator[](key));
+  }
+
+  NLH &at(std::string_view key) {
+    return static_cast<NLH &>(nlohmann::json::at(key));
+  }
+
+  NLH const &at(std::string_view key) const {
+    return static_cast<NLH const &>(nlohmann::json::at(key));
+  }
+
+  NLH &operator=(const NLH &other) {
+    *static_cast<nlohmann::json *>(this) = nlohmann::json(other);
+    return *this;
+  }
+
+  NLH &operator=(NLH &&other) {
+    *static_cast<nlohmann::json *>(this) = nlohmann::json(std::move(other));
+    return *this;
+  }
+
+  NLH &operator=(const char *other) {
+    *static_cast<nlohmann::json *>(this) = std::string_view{other};
+    return *this;
+  }
+
+  NLH &operator=(HTTP::int128_t other) {
+    *static_cast<nlohmann::json *>(this) = static_cast<double>(other);
+    return *this;
+  }
+
+  NLH &operator=(auto const &other) {
+    *static_cast<nlohmann::json *>(this) = nlohmann::json(other);
+    return *this;
+  }
+
+  NLH &operator=(auto &&other) {
+    *static_cast<nlohmann::json *>(this) = nlohmann::json(other);
+    return *this;
+  }
+
+  bool operator==(const char *other) const {
+    return this->is_string() && this->get<std::string>() == other;
+  }
+
+  bool operator==(std::string_view other) const {
+    return this->is_string() && this->get<std::string>() == other;
+  }
+
+  bool operator==(std::integral auto other) const {
+    return this->is_number() && static_cast<std::decay_t<decltype(other)>>(
+                                    this->get<double>()) == other;
+  }
+
+  bool operator==(std::floating_point auto other) const {
+    return this->is_number() && this->get<double>() == other;
+  }
+
+  bool operator==(bool other) const {
+    return this->is_boolean() && this->get<bool>() == other;
   }
 };
 
@@ -214,6 +314,20 @@ struct GLZ : public glz::json_t {
     return *this;
   }
 
+  // range based operator=()'s
+  template <std::ranges::range T> GLZ &operator=(T const &other) {
+    *static_cast<glz::json_t *>(this) =
+        glz::json_t::array_t{other.begin(), other.end()};
+    return *this;
+  }
+
+  // range based operator=()'s
+  template <std::ranges::range T> GLZ &operator=(T &&other) {
+    *static_cast<glz::json_t *>(this) =
+        glz::json_t::array_t{other.begin(), other.end()};
+    return *this;
+  }
+
   GLZ &operator=(auto const &other) {
     *static_cast<glz::json_t *>(this) = other;
     return *this;
@@ -252,10 +366,11 @@ struct GLZ : public glz::json_t {
   bool has_double_field(std::string_view key) const {
     if (!this->contains(key))
       return false;
+
     auto const &val = this->at(key);
-    return val.is_number() &&
-           std::fabs(std::fmod(val.get<double>(), 1.0) - 0.0) <
-               std::numeric_limits<double>::epsilon();
+
+    return val.is_number() && std::fabs(std::fmod(val.get<double>(), 1.0)) >
+                                  std::numeric_limits<double>::epsilon();
   }
 
   bool has_number_field(std::string_view key) const {
