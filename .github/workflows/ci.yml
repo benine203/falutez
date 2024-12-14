@@ -22,13 +22,13 @@ jobs:
                                 pkg-config zip unzip lzma xz-utils lrzip zstd clang-20 libstdc++-14-dev
         sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100
         sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
-        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-20 100
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-20 100
     - name: configure
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-stdlib=libc++" ..
+        cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 -DCMAKE_CXX_FLAGS="-stdlib=libc++" ..
     - name: build
       run: |
         cd build
