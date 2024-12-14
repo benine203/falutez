@@ -101,6 +101,10 @@ struct STATUS {
 
   bool is_platform_error() const noexcept { return platform_error.has_value(); }
 
+  bool is_http() const noexcept {
+    return code >= CONTINUE && !is_platform_error();
+  }
+
   auto operator->() const noexcept {
     struct Info {
       int16_t code;
@@ -231,9 +235,28 @@ struct STATUS {
     return code <=> other.code;
   }
 
-  bool operator==(int16_t code) const noexcept { return this->code == code; }
+  bool operator==(std::integral auto code) const noexcept {
+    return this->code == code;
+  }
+
+  bool operator==(STATUS::Code code) const noexcept {
+    return this->code == static_cast<int16_t>(code);
+  }
+
+  bool operator!=(STATUS::Code code) const noexcept {
+    return this->code != code;
+  }
+
   bool operator==(STATUS const &other) const noexcept {
-    return code == other.code;
+    return code == other.code && platform_error == other.platform_error;
+  }
+
+  bool operator!=(std::integral auto code) const noexcept {
+    return this->code != code && !is_platform_error();
+  }
+
+  bool operator!=(STATUS const &other) const noexcept {
+    return code != other.code && platform_error != other.platform_error;
   }
 
   std::string_view str() const noexcept { return operator->().str; }
