@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #ifndef _UNIHEADER_BUILD_
 #include <concepts>
 #include <format>
@@ -98,6 +99,14 @@ concept XSON = requires(TXSONImpl obj) {
 
   /// @brief contains
   obj.contains(std::string_view{});
+
+  obj.has_boolean_field(std::string_view{});
+
+  obj.has_double_field(std::string_view{});
+
+  obj.has_number_field(std::string_view{});
+
+  obj.has_string_field(std::string_view{});
 };
 
 struct NLH : public nlohmann::json {
@@ -108,6 +117,22 @@ struct NLH : public nlohmann::json {
   NLH &deserialize(std::string_view str) {
     *static_cast<nlohmann::json *>(this) = parse(str);
     return *this;
+  }
+
+  bool has_boolean_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_boolean();
+  }
+
+  bool has_double_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_number_float();
+  }
+
+  bool has_number_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_number();
+  }
+
+  bool has_string_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_string();
   }
 };
 
@@ -218,6 +243,27 @@ struct GLZ : public glz::json_t {
 
   bool operator==(bool other) const {
     return this->is_boolean() && this->get<bool>() == other;
+  }
+
+  bool has_boolean_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_boolean();
+  }
+
+  bool has_double_field(std::string_view key) const {
+    if (!this->contains(key))
+      return false;
+    auto const &val = this->at(key);
+    return val.is_number() &&
+           std::fabs(std::fmod(val.get<double>(), 1.0) - 0.0) <
+               std::numeric_limits<double>::epsilon();
+  }
+
+  bool has_number_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_number();
+  }
+
+  bool has_string_field(std::string_view key) const {
+    return this->contains(key) && this->at(key).is_string();
   }
 
   struct unpacked_items {

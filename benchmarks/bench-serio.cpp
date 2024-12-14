@@ -67,6 +67,24 @@ template <typename TXSONImpl> void BM_XSON_MODIFY(benchmark::State &state) {
 BENCHMARK_TEMPLATE(BM_XSON_MODIFY, XSON::NLH);
 BENCHMARK_TEMPLATE(BM_XSON_MODIFY, XSON::GLZ);
 
+template <typename TXSONImpl> void BM_XSON_HAS_FIELD(benchmark::State &state) {
+  TXSONImpl obj;
+  const auto raw = R"({"key":"value","key2":42,"key3":3.14})";
+
+  obj.deserialize(raw);
+
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(obj.has_boolean_field("key4"));
+    benchmark::DoNotOptimize(obj.has_string_field("key"));
+    benchmark::DoNotOptimize(!obj.has_string_field("key2"));
+    benchmark::DoNotOptimize(obj.has_number_field("key2"));
+    benchmark::DoNotOptimize(obj.has_double_field("key3"));
+  }
+}
+
+BENCHMARK_TEMPLATE(BM_XSON_HAS_FIELD, XSON::NLH);
+BENCHMARK_TEMPLATE(BM_XSON_HAS_FIELD, XSON::GLZ);
+
 int main(int argc, char **argv) {
   ::benchmark::Initialize(&argc, argv);
   if (::benchmark::ReportUnrecognizedArguments(argc, argv)) {

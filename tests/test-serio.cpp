@@ -20,6 +20,7 @@ TYPED_TEST(XSONTest, Access) {
   obj["key"] = "value";
   obj["key2"] = 42;
   obj["key3"] = 3.14;
+  obj["key4"] = true;
 
   // Verify that the values are correctly set and retrieved using operator[]
   EXPECT_EQ(obj["key"], "value");
@@ -31,6 +32,17 @@ TYPED_TEST(XSONTest, Access) {
   EXPECT_EQ(obj.at("key").template get<std::string>(), "value");
   EXPECT_EQ(obj.at("key2").template get<int>(), 42);
   EXPECT_EQ(obj.at("key3").template get<double>(), 3.14);
+
+  EXPECT_TRUE(obj.has_boolean_field("key4"));
+
+  EXPECT_TRUE(obj.has_string_field("key"));
+  EXPECT_FALSE(obj.has_string_field("key2"));
+
+  EXPECT_TRUE(obj.has_number_field("key2"));
+  EXPECT_TRUE(obj.has_number_field("key3"));
+
+  EXPECT_FALSE(obj.has_double_field("key2"));
+  EXPECT_TRUE(obj.has_double_field("key3"));
 }
 
 TYPED_TEST(XSONTest, SERDE) {
