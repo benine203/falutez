@@ -36,9 +36,9 @@ struct Client {
     return *this;
   }
 
-  auto &operator->() { return *impl_; }
+  auto *operator->() { return impl_.get(); }
 
-  auto const &operator->() const { return *impl_; }
+  auto const *operator->() const { return impl_.get(); }
 
   auto &operator*() { return *impl_; }
 

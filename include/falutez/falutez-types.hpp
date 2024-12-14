@@ -94,7 +94,17 @@ struct Response {
 // using Request = std::packaged_task<HTTP::expected<RequestInfo,
 // HTTP::STATUS>>;
 
-using AsyncResponse = exec::task<HTTP::expected<Response, HTTP::STATUS>>;
+// using AsyncResponse = exec::task<HTTP::expected<Response, HTTP::STATUS>>;
+
+struct AsyncResponse
+    : public exec::task<HTTP::expected<Response, HTTP::STATUS>> {
+  using exec::task<HTTP::expected<Response, HTTP::STATUS>>::task;
+
+  AsyncResponse(exec::task<HTTP::expected<Response, HTTP::STATUS>> &&task)
+      : exec::task<HTTP::expected<Response, HTTP::STATUS>>{std::move(task)} {}
+
+  decltype(auto) then(auto &&fn) { stdexec::then(*this, std::forward(fn)); }
+};
 
 /**
  * @brief RequestSpec - holds all the information needed to construct
