@@ -6,6 +6,7 @@
 
 #include <falutez/falutez-impl-restclient.hpp>
 #include <stdexec/__detail/__sync_wait.hpp>
+#include <stdexec/__detail/__then.hpp>
 #include <stdexec/__detail/__when_all.hpp>
 #include <utility>
 
@@ -23,6 +24,30 @@ TEST(FalRESTClient, InitDestroy) {
   cfg.headers = HTTP::Headers{{{"Content-Type", "application/json"}}};
 
   HTTP::RestClientClient client{cfg};
+}
+
+TEST_F(RESTFixture, AndThen) {
+  auto cfg = HTTP::RestClientClientConfig{};
+  cfg.base_url = std::format("http://localhost:{}", port);
+  cfg.timeout = std::chrono::milliseconds{2000};
+  cfg.keepalive = std::make_pair(true, std::chrono::milliseconds{10000});
+  cfg.thread_pool_size = 1;
+
+  HTTP::RestClientClient client{cfg};
+
+  auto req1 =
+      stdexec::then(client.request(HTTP::RequestSpec{
+                        .method = kSuccessMethod,
+                        .path = kSuccessPath,
+                        .params = std::make_optional<HTTP::Parameters>(),
+                        .headers = std::make_optional<HTTP::Headers>(),
+                        .body = std::make_optional<HTTP::Body>()}),
+                    [](HTTP::expected<HTTP::Response, HTTP::STATUS> &&resp) {
+                      SUCCEED();
+                      return std::forward<decltype(resp)>(resp);
+                    });
+
+  stdexec::sync_wait(std::move(req1));
 }
 
 TEST_F(RESTFixture, OneThreadMultipleReqs) {
