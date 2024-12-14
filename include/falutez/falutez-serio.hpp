@@ -5,6 +5,9 @@
 #include <format>
 #include <limits>
 
+#include <nlohmann/json_fwd.hpp>
+#include <string>
+
 #include <glaze/core/context.hpp>
 #include <glaze/core/opts.hpp>
 #include <glaze/core/read.hpp>
@@ -111,15 +114,79 @@ concept XSON = requires(TXSONImpl obj) {
   obj.is_array();
 
   obj.get_array();
+
+  TXSONImpl{std::unordered_map<std::string, int>{}};
+  TXSONImpl{std::map<std::string, int>{}};
+
+  TXSONImpl::parse(std::string_view{});
+
+  typename TXSONImpl::object_t;
+  typename TXSONImpl::array_t;
 };
 
 struct NLH : public nlohmann::json {
-  NLH() = default;
-  NLH(NLH const &other) : nlohmann::json(other) {}
-  NLH(NLH &&other) : nlohmann::json(std::move(other)) {}
+  using object_t = nlohmann::json::object_t;
+  using array_t = nlohmann::json::array_t;
 
-  NLH(nlohmann::json const &other) : nlohmann::json(other) {}
-  NLH(nlohmann::json &&other) : nlohmann::json(std::move(other)) {}
+  NLH() = default;
+
+  NLH(auto const &other) {
+    using data_type = std::decay_t<decltype(other)>;
+
+    if constexpr (std::is_same_v<data_type, NLH>) {
+      auto const &other_nlh = static_cast<NLH const &>(other);
+      if (other_nlh.is_object()) {
+        *static_cast<nlohmann::json *>(this) =
+            static_cast<object_t const &>(other_nlh.get<object_t>());
+      } else if (other_nlh.is_array()) {
+        *static_cast<nlohmann::json *>(this) =
+            static_cast<array_t const &>(other_nlh.get<array_t>());
+      } else {
+        *static_cast<nlohmann::json *>(this) =
+            static_cast<nlohmann::json const &>(other);
+      }
+    } else {
+      *static_cast<nlohmann::json *>(this) = other;
+    }
+  }
+
+  NLH(auto &&other) {
+    using data_type = std::decay_t<decltype(other)>;
+
+    if constexpr (std::is_same_v<data_type, NLH>) {
+      auto &other_nlh = static_cast<NLH &>(other);
+
+      if (other_nlh.is_object()) {
+        *static_cast<nlohmann::json *>(this) =
+            std::move(static_cast<object_t>(other_nlh.get_ref<object_t &>()));
+      } else if (other_nlh.is_array()) {
+        *static_cast<nlohmann::json *>(this) =
+            std::move(static_cast<array_t>(other_nlh.get_ref<array_t &>()));
+      } else {
+        *static_cast<nlohmann::json *>(this) =
+            std::move(static_cast<nlohmann::json &>(other));
+      }
+    } else {
+      *static_cast<nlohmann::json *>(this) = std::move(other);
+    }
+  }
+
+  NLH &operator=(auto &&other) {
+    *this = std::move(NLH(std::move(other)));
+    return *this;
+  }
+
+  NLH &operator=(auto &&other)
+    requires(std::is_scalar_v<std::decay_t<decltype(other)>>)
+  {
+    *static_cast<nlohmann::json *>(this) = std::move(other);
+    return *this;
+  }
+
+  NLH &operator=(HTTP::int128_t other) {
+    *static_cast<nlohmann::json *>(this) = static_cast<double>(other);
+    return *this;
+  }
 
   std::string serialize(bool pretty = false) const {
     return dump(pretty ? 2 : -1);
@@ -184,36 +251,6 @@ struct NLH : public nlohmann::json {
     return static_cast<NLH const &>(nlohmann::json::at(key));
   }
 
-  NLH &operator=(const NLH &other) {
-    *static_cast<nlohmann::json *>(this) = nlohmann::json(other);
-    return *this;
-  }
-
-  NLH &operator=(NLH &&other) {
-    *static_cast<nlohmann::json *>(this) = nlohmann::json(std::move(other));
-    return *this;
-  }
-
-  NLH &operator=(const char *other) {
-    *static_cast<nlohmann::json *>(this) = std::string_view{other};
-    return *this;
-  }
-
-  NLH &operator=(HTTP::int128_t other) {
-    *static_cast<nlohmann::json *>(this) = static_cast<double>(other);
-    return *this;
-  }
-
-  NLH &operator=(auto const &other) {
-    *static_cast<nlohmann::json *>(this) = nlohmann::json(other);
-    return *this;
-  }
-
-  NLH &operator=(auto &&other) {
-    *static_cast<nlohmann::json *>(this) = nlohmann::json(other);
-    return *this;
-  }
-
   bool operator==(const char *other) const {
     return this->is_string() && this->get<std::string>() == other;
   }
@@ -245,6 +282,37 @@ struct GLZ : public glz::json_t {
   GLZ(glz::json_t const &other) : glz::json_t(other) {}
   GLZ(glz::json_t &&other) : glz::json_t(std::move(other)) {}
 
+  GLZ(glz::json_t::object_t const &other) : glz::json_t(other) {}
+  GLZ(glz::json_t::object_t &&other) : glz::json_t(std::move(other)) {}
+
+  template <typename K, typename V> GLZ(std::unordered_map<K, V> const &other) {
+    *static_cast<json_t *>(this) = std::move(object_t{});
+    for (auto const &[key, value] : other) {
+      (static_cast<json_t *>(this))->operator[](key) = value;
+    }
+  }
+
+  template <typename K, typename V> GLZ(std::unordered_map<K, V> &&other) {
+    *static_cast<json_t *>(this) = std::move(object_t{});
+    for (auto &&[key, value] : other) {
+      (static_cast<json_t *>(this))->operator[](key) = std::move(value);
+    }
+  }
+
+  template <typename K, typename V> GLZ(std::map<K, V> const &other) {
+    *static_cast<json_t *>(this) = std::move(object_t{});
+    for (auto const &[key, value] : other) {
+      (static_cast<json_t *>(this))->operator[](key) = value;
+    }
+  }
+
+  template <typename K, typename V> GLZ(std::map<K, V> &&other) {
+    *static_cast<json_t *>(this) = std::move(object_t{});
+    for (auto &&[key, value] : other) {
+      (static_cast<json_t *>(this))->operator[](key) = std::move(value);
+    }
+  }
+
   GLZ &deserialize(std::string_view str) {
     if (auto ec = glz::read_json<glz::json_t>(str); !ec.has_value()) {
       throw std::runtime_error{std::format(
@@ -260,6 +328,12 @@ struct GLZ : public glz::json_t {
 
   std::string serialize(bool pretty = false) const {
     return glz::write_json(*this).value();
+  }
+
+  static GLZ parse(std::string_view str) {
+    GLZ json;
+    json.deserialize(str);
+    return json;
   }
 
   template <std::integral T> T get() const {
@@ -279,18 +353,38 @@ struct GLZ : public glz::json_t {
   }
 
   GLZ &operator[](std::string_view key) {
+    using object_t = std::map<std::string, GLZ, std::less<>>;
+    if (is_object()) {
+      auto &self_obj = *reinterpret_cast<object_t *>(this);
+      return self_obj[std::string{key}];
+    }
     return static_cast<GLZ &>(glz::json_t::operator[](key));
   }
 
   GLZ const &operator[](std::string_view key) const {
+    using object_t = std::map<std::string, GLZ, std::less<>>;
+    if (is_object()) {
+      auto const &self_obj = *reinterpret_cast<object_t const *>(this);
+      return self_obj.at(std::string{key});
+    }
     return static_cast<GLZ const &>(glz::json_t::operator[](key));
   }
 
   GLZ &at(std::string_view key) {
+    using object_t = std::map<std::string, GLZ, std::less<>>;
+    if (is_object()) {
+      auto &self_obj = *reinterpret_cast<object_t *>(this);
+      return self_obj.at(std::string{key});
+    }
     return static_cast<GLZ &>(glz::json_t::at(key));
   }
 
   GLZ const &at(std::string_view key) const {
+    using object_t = std::map<std::string, GLZ, std::less<>>;
+    if (is_object()) {
+      auto const &self_obj = *reinterpret_cast<object_t const *>(this);
+      return self_obj.at(std::string{key});
+    }
     return static_cast<GLZ const &>(glz::json_t::at(key));
   }
 
@@ -300,6 +394,26 @@ struct GLZ : public glz::json_t {
   }
 
   GLZ &operator=(GLZ &&other) {
+    *static_cast<glz::json_t *>(this) = std::move(other);
+    return *this;
+  }
+
+  GLZ &operator=(glz::json_t const &other) {
+    *static_cast<glz::json_t *>(this) = other;
+    return *this;
+  }
+
+  GLZ &operator=(glz::json_t &&other) {
+    *static_cast<glz::json_t *>(this) = std::move(other);
+    return *this;
+  }
+
+  GLZ &operator=(glz::json_t::object_t const &other) {
+    *static_cast<glz::json_t *>(this) = other;
+    return *this;
+  }
+
+  GLZ &operator=(glz::json_t::object_t &&other) {
     *static_cast<glz::json_t *>(this) = std::move(other);
     return *this;
   }
