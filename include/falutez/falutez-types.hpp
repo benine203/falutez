@@ -85,9 +85,25 @@ struct ResponseDetails {
     return !!status;
   }
 
+  XSON::JSON to_json() const {
+    auto json = XSON::JSON{};
+    json["method"] = to_string(method);
+    json["path"] = path;
+    json["status"] = status.to_json();
+    json["start_time"] = init_time.time_since_epoch().count();
+    json["end_time"] = end_time.time_since_epoch().count();
+    if (headers.has_value())
+      json["headers"] = headers.value().to_json();
+    if (body.has_value())
+      json["body"] = body.value().data;
+    return json;
+  }
+
+  std::string str() const { return to_json().dump().value_or("undefined"); }
+
   friend std::ostream &operator<<(std::ostream &os,
-                                  ResponseDetails const &req) {
-    os << req.method << " " << req.path << " -> " << req.status;
+                                  ResponseDetails const &resp) {
+    os << resp.to_json().dump().value_or("undefined");
     return os;
   }
 };

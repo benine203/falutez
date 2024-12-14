@@ -10,6 +10,8 @@
 #include <unordered_map>
 #endif
 
+#include "falutez/falutez-serio.hpp"
+
 namespace HTTP {
 
 struct STATUS {
@@ -260,6 +262,14 @@ struct STATUS {
   }
 
   std::string_view str() const noexcept { return operator->().str; }
+
+  XSON::JSON to_json() const {
+    auto json = XSON::JSON{};
+    auto const info = operator->();
+    json["code"] = info.code;
+    json["str"] = info.str;
+    return json;
+  }
 
 private:
   int16_t code = NONE;
