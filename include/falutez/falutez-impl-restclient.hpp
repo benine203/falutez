@@ -43,7 +43,7 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
                                __FILE__, __LINE__, __func__)}));
     }
 
-    auto sync_op = [this, params]() -> HTTP::Response {
+    auto sync_op = [this, params]() -> HTTP::ResponseDetails {
       static thread_local RestClient::Connection conn = [this]() {
         auto thr_conn = RestClient::Connection{config->base_url};
         if (config->timeout.count() != 0)
@@ -65,8 +65,8 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
         return thr_conn;
       }();
 
-      Response response{.method = params.method,
-                        .path = std::string{params.path}};
+      ResponseDetails response{.method = params.method,
+                               .path = std::string{params.path}};
       response.headers = config->headers;
       response.body = std::move(params.body);
 
@@ -80,8 +80,9 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
       }
 
       const static std::unordered_map<
-          METHOD, std::function<RestClient::Response(
-                      HTTP::Response &, RestClient::Connection &, std::string)>>
+          METHOD,
+          std::function<RestClient::Response(
+              HTTP::ResponseDetails &, RestClient::Connection &, std::string)>>
           methods = {
               {METHOD::GET,
                [](auto &req, auto &conn, auto path) { return conn.get(path); }},

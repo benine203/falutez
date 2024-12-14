@@ -62,7 +62,7 @@ struct Body {
        indicates a system-level error before the HTTP layer (e.g. caught
        exception or failed malloc)
  */
-struct Response {
+struct ResponseDetails {
   const METHOD method;
   const std::string path;
 
@@ -85,23 +85,20 @@ struct Response {
     return !!status;
   }
 
-  friend std::ostream &operator<<(std::ostream &os, Response const &req) {
+  friend std::ostream &operator<<(std::ostream &os,
+                                  ResponseDetails const &req) {
     os << req.method << " " << req.path << " -> " << req.status;
     return os;
   }
 };
 
-// using Request = std::packaged_task<HTTP::expected<RequestInfo,
-// HTTP::STATUS>>;
+using Response = HTTP::expected<ResponseDetails, HTTP::STATUS>;
 
-// using AsyncResponse = exec::task<HTTP::expected<Response, HTTP::STATUS>>;
+struct AsyncResponse : public exec::task<Response> {
+  using exec::task<Response>::task; // inherit constructors
 
-struct AsyncResponse
-    : public exec::task<HTTP::expected<Response, HTTP::STATUS>> {
-  using exec::task<HTTP::expected<Response, HTTP::STATUS>>::task;
-
-  AsyncResponse(exec::task<HTTP::expected<Response, HTTP::STATUS>> &&task)
-      : exec::task<HTTP::expected<Response, HTTP::STATUS>>{std::move(task)} {}
+  AsyncResponse(exec::task<Response> &&task)
+      : exec::task<Response>{std::move(task)} {}
 };
 
 /**

@@ -42,7 +42,7 @@ TEST_F(RESTFixture, AndThen) {
                         .params = std::make_optional<HTTP::Parameters>(),
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()}),
-                    [](HTTP::expected<HTTP::Response, HTTP::STATUS> &&resp) {
+                    [](HTTP::Response &&resp) {
                       SUCCEED();
                       return std::forward<decltype(resp)>(resp);
                     });
