@@ -1,6 +1,7 @@
 #pragma once
 
 #ifndef _UNIHEADER_BUILD_
+#include <cerrno>
 #include <exec/static_thread_pool.hpp>
 #include <restclient-cpp/connection.h>
 #include <restclient-cpp/restclient.h>
@@ -35,6 +36,12 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
   AsyncResponse request(RequestSpec params) override {
     // construct a thread-local connection object for each thread in the pool.
     // and apply any necessary configuration.
+
+    if (params.path.empty() && this->config->base_url.empty()) {
+      co_return HTTP::unexpected(HTTP::STATUS(
+          {EINVAL, std::format("({}:{}:{}): both path and base_url empty",
+                               __FILE__, __LINE__, __func__)}));
+    }
 
     auto sync_op = [this, params]() -> HTTP::Response {
       static thread_local RestClient::Connection conn = [this]() {
