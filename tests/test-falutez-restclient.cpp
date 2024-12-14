@@ -7,7 +7,10 @@
 #include <falutez/falutez-impl-restclient.hpp>
 #include <stdexec/__detail/__sync_wait.hpp>
 #include <stdexec/__detail/__when_all.hpp>
+#include <utility>
 
+#include "falutez/falutez-http-status.hpp"
+#include "falutez/falutez-types-std.hpp"
 #include "falutez/falutez-types.hpp"
 #include "rest-server-fixture.hpp"
 

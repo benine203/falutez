@@ -18,8 +18,9 @@ struct RESTFixture : public ::testing::Test {
   static inline std::random_device rd;
   uint16_t port = rd() % 1000 + 8000;
 
-  static inline constexpr std::string_view kSuccessPath = "/api/v1/test";
+  static inline constexpr std::string_view kSuccessPath = "/api/v1/success";
   static inline constexpr std::string_view kWaitPath = "/api/v1/wait";
+  static inline constexpr std::string_view kMaybeFailPath = "/api/v1/maybe";
   static inline constexpr auto kWaitDuration =
       std::chrono::duration<double, std::milli>{200};
   static inline constexpr auto kSuccessMethod = HTTP::METHOD::GET;
@@ -182,6 +183,16 @@ struct RESTFixture : public ::testing::Test {
                            "\r\n"
                            "...Hello, World!";
                 std::this_thread::sleep_for(kWaitDuration);
+              } else if (method == to_string(kSuccessMethod) &&
+                         path == kMaybeFailPath) {
+                response = "HTTP/1.0 200 OK\r\n"
+                           "Content-Type: text/plain\r\n"
+                           "Content-Length: 15\r\n"
+                           "\r\n"
+                           "...Hello, World!";
+                if (rd() % 2 == 0) {
+                  response = "HTTP/1.0 503 Service Unavailable\r\n";
+                }
               } else {
                 response = "HTTP/1.0 404 Not Found\r\n";
               }

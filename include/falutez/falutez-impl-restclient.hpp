@@ -125,6 +125,15 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
       auto res = req_fn(response, conn, full_path);
       response.end_time = std::chrono::system_clock::now();
 
+      if (res.code < 100) {
+        response.status =
+            HTTP::STATUS{std::make_pair<int16_t, std::string_view>(
+                res.code, std::format("(curl) {}",
+                                      curl_easy_strerror(
+                                          static_cast<CURLcode>(res.code))))};
+        return response;
+      }
+
 #ifndef NDEBUG
       // std::cerr << std::format("{}:{}:{}: client timeout={}; base_url={}\n",
       //                          __FILE__, __LINE__, __func__,

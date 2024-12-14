@@ -102,8 +102,6 @@ struct AsyncResponse
 
   AsyncResponse(exec::task<HTTP::expected<Response, HTTP::STATUS>> &&task)
       : exec::task<HTTP::expected<Response, HTTP::STATUS>>{std::move(task)} {}
-
-  decltype(auto) then(auto &&fn) { stdexec::then(*this, std::forward(fn)); }
 };
 
 /**

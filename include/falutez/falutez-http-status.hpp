@@ -4,6 +4,8 @@
 #include <compare>
 #include <cstdint>
 #include <cstring>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #endif
@@ -97,11 +99,20 @@ struct STATUS {
 
   bool is_errno() const noexcept { return code < NONE; }
 
+  bool is_platform_error() const noexcept { return platform_error.has_value(); }
+
   auto operator->() const noexcept {
     struct Info {
       int16_t code;
       std::string_view str;
     };
+
+    if (platform_error.has_value()) {
+      return Info{
+          .code = code,
+          .str = platform_error.value(),
+      };
+    }
 
     if (code < NONE) {
       return Info{
@@ -193,8 +204,20 @@ struct STATUS {
     return infos.at(code);
   }
 
+  STATUS() = default;
+  STATUS(int16_t code) noexcept : code(code) {}
+  STATUS(std::pair<int16_t, std::string_view> const &platform_error) noexcept
+      : code(platform_error.first), platform_error(platform_error.second) {}
+
   STATUS &operator=(int16_t code) noexcept {
     this->code = code;
+    return *this;
+  }
+
+  STATUS &operator=(
+      std::pair<int16_t, std::string_view> const &platform_error) noexcept {
+    this->code = platform_error.first;
+    this->platform_error = platform_error.second;
     return *this;
   }
 
@@ -217,6 +240,7 @@ struct STATUS {
 
 private:
   int16_t code = NONE;
+  std::optional<std::string> platform_error = std::nullopt;
 };
 
 } // namespace HTTP
