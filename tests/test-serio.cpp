@@ -22,14 +22,21 @@ TYPED_TEST(XSONTest, DefaultConstructor) {
 
 TYPED_TEST(XSONTest, CopyConstructor) {
 
-  TypeParam obj1 = typename TypeParam::object_t{};
+  TypeParam obj1{};
 
   obj1["key"] = "value";
   obj1["key2"] = 42;
   obj1["key3"] = 3.14;
 
+  ASSERT_TRUE(obj1.is_object());
+  ASSERT_EQ(obj1.size(), 3);
+  ASSERT_EQ(obj1["key"], "value");
+  ASSERT_EQ(obj1["key2"], 42);
+  ASSERT_EQ(obj1["key3"], 3.14);
+
   // Copy the object
   TypeParam from_otherobj(obj1);
+  ASSERT_TRUE(from_otherobj.is_object());
 
   //// Verify that the values are correctly copied
   EXPECT_EQ(from_otherobj["key"], "value");
@@ -37,8 +44,23 @@ TYPED_TEST(XSONTest, CopyConstructor) {
   EXPECT_EQ(from_otherobj["key3"], 3.14);
 
   TypeParam from_arrayt{typename TypeParam::array_t{4, 5}};
+  ASSERT_TRUE(from_arrayt.is_array());
+
   TypeParam from_constchar{"xyz"};
-  // TypeParam cons_from_vec{std::vector<int>{9, 8, 7}};
+  ASSERT_TRUE(from_constchar.is_string());
+
+  TypeParam cons_from_vec{std::vector<int>{9, 8, 7}};
+  ASSERT_TRUE(cons_from_vec.is_array());
+
+  auto const obj2 = TypeParam{{{"key", "value"}, {"key2", 42}, {"key3", 3.14}}};
+
+  auto copy2 = TypeParam(obj2);
+
+  ASSERT_TRUE(copy2.is_object());
+
+  EXPECT_EQ(copy2["key"], "value");
+  EXPECT_EQ(copy2["key2"], 42);
+  EXPECT_EQ(copy2["key3"], 3.14);
 }
 
 TYPED_TEST(XSONTest, MoveConstructor) {
@@ -112,24 +134,110 @@ TYPED_TEST(XSONTest, EnumItems) {
 
 TYPED_TEST(XSONTest, ConsFromMap) {
 
-  auto m = std::unordered_map<std::string, int>{{"key", 42}, {"key2", 3}};
+  auto m1 = std::unordered_map<std::string, int>{{"key", 42}, {"key2", 3}};
+  auto m2 = std::map<std::string_view, float>{{"key", 42.0}, {"key2", 3.14}};
 
-  TypeParam obj(m);
+  TypeParam obj(m1);
+
+  TypeParam obj2(std::move(m2));
 
   // Verify that the values are correctly set and retrieved using
   // operator[]
   EXPECT_EQ(obj["key"], 42);
   EXPECT_EQ(obj["key2"], 3);
 
-  obj = TypeParam{std::map<std::string, int>{{"key", 42}, {"key2", 3}}};
+  obj = TypeParam(std::map<std::string, std::variant<int, double>>{
+      {"key", 42}, {"key2", 3.14}});
 
   EXPECT_EQ(obj["key"], 42);
   EXPECT_EQ(obj["key2"], 3);
 }
 
+TYPED_TEST(XSONTest, ConsFromIL) {
+  TypeParam obj{{
+      {"key", 42},
+      {"key2", 3.14},
+  }};
+
+  // verify
+  ASSERT_TRUE(obj.is_object());
+  EXPECT_EQ(obj["key"], 42);
+  EXPECT_EQ(obj["key2"], 3);
+
+  TypeParam arr{{
+      {1, 2, 3},
+      {4, 5, 6},
+  }};
+
+  auto v1 = std::vector<int>{1, 2, 3};
+
+  ASSERT_TRUE(arr.is_array());
+  EXPECT_EQ(arr[0], v1);
+
+  auto const cil1 = std::initializer_list<float>{1.1, 2.2, 3.3};
+  auto obj2 = TypeParam{cil1};
+
+  ASSERT_TRUE(obj2.is_array());
+
+  auto obj2_0 = obj2[0].template get<float>();
+
+  EXPECT_FLOAT_EQ(obj2_0, 1.1f);
+  //  EXPECT_FLOAT_EQ(obj2[1], 2.2f);
+  //  EXPECT_FLOAT_EQ(obj2[2], 3.3f);
+}
+
+TYPED_TEST(XSONTest, FromVec) {
+  TypeParam obj{std::vector<int>{1, 2, 3}};
+
+  ASSERT_TRUE(obj.is_array());
+  EXPECT_EQ(obj[0], 1);
+  EXPECT_EQ(obj[1], 2);
+  EXPECT_EQ(obj[2], 3);
+
+  obj[1] = 42;
+  EXPECT_EQ(obj[1], 42);
+
+  obj = std::vector<double>{1.1, 2.2, 3.3};
+  ASSERT_TRUE(obj.is_array());
+  EXPECT_EQ(obj[0], 1.1);
+  EXPECT_EQ(obj[1], 2.2);
+  EXPECT_EQ(obj[2], 3.3);
+
+  auto const cv = std::vector<std::string>{"a", "b", "c"};
+  obj = cv;
+
+  ASSERT_TRUE(obj.is_array());
+  EXPECT_EQ(obj[0], "a");
+  EXPECT_EQ(obj[1], "b");
+  EXPECT_EQ(obj[2], "c");
+}
+
+TYPED_TEST(XSONTest, FromVariant) {
+  TypeParam obj{std::variant<int, double>{42}};
+
+  ASSERT_TRUE(obj.is_number());
+  EXPECT_EQ(obj, 42);
+
+  obj = std::variant<int, double>{3.14};
+  ASSERT_TRUE(obj.is_number());
+
+  const auto v2 = std::variant<double, std::string>{"xyz"};
+  obj = v2;
+
+  ASSERT_TRUE(obj.is_string());
+  EXPECT_EQ(obj, "xyz");
+
+  obj = TypeParam{v2};
+
+  ASSERT_TRUE(obj.is_string());
+  EXPECT_EQ(obj, "xyz");
+}
+
 TYPED_TEST(XSONTest, Access) {
 
   TypeParam obj{};
+
+  nlohmann::json j1{};
 
   obj["key"] = "value";
   obj["key2"] = 42;
