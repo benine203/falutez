@@ -30,7 +30,7 @@ concept aggregate_container = requires(R &r) { // no maps or other composites
   std::ranges::begin(r);
   std::ranges::end(r);
   *std::ranges::begin(r) == r[0];
-} && (!std::is_scalar<std::decay_t<R>>::value);
+} && (!std::is_scalar_v<std::decay_t<R>>);
 
 template <typename R> struct is_aggregate_container : std::false_type {};
 
@@ -141,17 +141,16 @@ struct NLH : public nlohmann::json {
   using object_t = nlohmann::json::object_t;
   using array_t = nlohmann::json::array_t;
 
-  NLH() : nlohmann::json() {}
-
+  NLH() = default;
   NLH(nlohmann::json const &other) : nlohmann::json(other) {}
-
   NLH(nlohmann::json &&other) : nlohmann::json(std::move(other)) {}
 
   template <typename T, typename... Ts> NLH(std::variant<T, Ts...> &&other) {
     std::visit(
         [this](auto &&arg) {
           using U = std::decay_t<decltype(arg)>;
-          *static_cast<nlohmann::json *>(this) = std::move(arg);
+          *static_cast<nlohmann::json *>(this) =
+              std::forward<decltype(arg)>(arg);
         },
         std::move(other));
   }
@@ -200,14 +199,15 @@ struct NLH : public nlohmann::json {
             std::move(static_cast<nlohmann::json &>(other));
       }
     } else {
-      *static_cast<nlohmann::json *>(this) = std::move(other);
+      *static_cast<nlohmann::json *>(this) =
+          std::forward<decltype(other)>(other);
     }
   }
 
   NLH &operator=(auto &&other)
     requires(std::is_scalar_v<std::decay_t<decltype(other)>>)
   {
-    *static_cast<nlohmann::json *>(this) = std::move(other);
+    *static_cast<nlohmann::json *>(this) = std::forward<decltype(other)>(other);
     return *this;
   }
 
@@ -216,7 +216,7 @@ struct NLH : public nlohmann::json {
     return *this;
   }
 
-  std::string serialize(bool pretty = false) const {
+  [[nodiscard]] std::string serialize(bool pretty = false) const {
     return dump(pretty ? 2 : -1);
   }
 
@@ -225,19 +225,19 @@ struct NLH : public nlohmann::json {
     return *this;
   }
 
-  bool has_boolean_field(std::string_view key) const {
+  [[nodiscard]] bool has_boolean_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_boolean();
   }
 
-  bool has_double_field(std::string_view key) const {
+  [[nodiscard]] bool has_double_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_number_float();
   }
 
-  bool has_number_field(std::string_view key) const {
+  [[nodiscard]] bool has_number_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_number();
   }
 
-  bool has_string_field(std::string_view key) const {
+  [[nodiscard]] bool has_string_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_string();
   }
 
@@ -248,7 +248,7 @@ struct NLH : public nlohmann::json {
     return *this;
   }
 
-  NLH const &get_array() const {
+  [[nodiscard]] NLH const &get_array() const {
     if (!this->is_array())
       throw std::runtime_error{
           std::format("{}:{}:{}: not an array", __FILE__, __LINE__, __func__)};
@@ -283,7 +283,7 @@ struct NLH : public nlohmann::json {
     return static_cast<NLH &>(nlohmann::json::at(key));
   }
 
-  NLH const &at(std::string_view key) const {
+  [[nodiscard]] NLH const &at(std::string_view key) const {
     return static_cast<NLH const &>(nlohmann::json::at(key));
   }
 
@@ -291,7 +291,7 @@ struct NLH : public nlohmann::json {
     return static_cast<NLH &>(nlohmann::json::at(idx));
   }
 
-  NLH const &at(std::integral auto idx) const {
+  [[nodiscard]] NLH const &at(std::integral auto idx) const {
     return static_cast<NLH const &>(nlohmann::json::at(idx));
   }
 
@@ -321,9 +321,8 @@ struct NLH : public nlohmann::json {
       auto const &self_arr = this->get_array();
       return std::equal(self_arr.begin(), self_arr.end(), other.begin(),
                         other.end());
-    } else {
-      return false;
     }
+    return false;
   }
 };
 
@@ -334,13 +333,13 @@ struct GLZ : public glz::json_t {
   GLZ(GLZ &&other) : glz::json_t(std::move(other)) {}
 
   template <std::convertible_to<glz::json_t> J>
-  GLZ(J &&other) : glz::json_t(std::move(other)) {}
+  GLZ(J &&other) : glz::json_t(std::forward<J>(other)) {}
 
   template <typename T, typename... Ts> GLZ(std::variant<T, Ts...> &&other) {
     std::visit(
         [this](auto &&arg) {
           using U = std::decay_t<decltype(arg)>;
-          *static_cast<glz::json_t *>(this) = std::move(arg);
+          *static_cast<glz::json_t *>(this) = std::forward<decltype(arg)>(arg);
         },
         std::move(other));
   }
@@ -434,8 +433,8 @@ struct GLZ : public glz::json_t {
     } else {
       auto new_subarray = array_t{};
 
-      for (auto &v : other) {
-        for (auto &elm : v) {
+      for (auto &subil : other) {
+        for (auto &elm : subil) {
           new_subarray.emplace_back(std::move(elm));
         }
 
@@ -471,19 +470,19 @@ struct GLZ : public glz::json_t {
   }
 
   GLZ &deserialize(std::string_view str) {
-    if (auto ec = glz::read_json<glz::json_t>(str); !ec.has_value()) {
+    if (auto errc = glz::read_json<glz::json_t>(str); errc.has_value()) {
+      *(static_cast<glz::json_t *>(this)) = errc.value();
+    } else {
       throw std::runtime_error{std::format(
           "{}:{}:{}: {} at position {}; dump: {}; source: {}", __FILE__,
-          __LINE__, __func__, glz::format_error(ec), ec.error().location,
+          __LINE__, __func__, glz::format_error(errc), errc.error().location,
           dump().value_or("<DUMP-UNAVAILABLE>"), str)};
-    } else {
-      *(static_cast<glz::json_t *>(this)) = ec.value();
     }
 
     return *this;
   }
 
-  std::string serialize(bool pretty = false) const {
+  [[nodiscard]] std::string serialize(bool _pretty = false) const {
     return glz::write_json(*this).value();
   }
 
@@ -503,7 +502,7 @@ struct GLZ : public glz::json_t {
 
   template <typename T>
     requires((!std::integral<T>) && (!std::floating_point<T>))
-  T const &get() const {
+  [[nodiscard]] T const &get() const {
     return glz::json_t::get<T>();
   }
 
@@ -571,7 +570,7 @@ struct GLZ : public glz::json_t {
     return self_obj.at(std::string{key});
   }
 
-  GLZ const &at(std::string_view key) const {
+  [[nodiscard]] GLZ const &at(std::string_view key) const {
     using object_t = std::map<std::string, GLZ, std::less<>>;
     if (!is_object())
       throw std::runtime_error{
@@ -589,7 +588,7 @@ struct GLZ : public glz::json_t {
     return self_arr.at(idx);
   }
 
-  GLZ const &at(std::integral auto idx) const {
+  [[nodiscard]] GLZ const &at(std::integral auto idx) const {
     if (!is_array())
       throw std::runtime_error{
           std::format("{}:{}:{}: not an array", __FILE__, __LINE__, __func__)};
@@ -603,7 +602,7 @@ struct GLZ : public glz::json_t {
     return *this;
   }
 
-  GLZ &operator=(GLZ &&other) {
+  GLZ &operator=(GLZ &&other) noexcept {
     *static_cast<glz::json_t *>(this) = std::move(other);
     return *this;
   }
@@ -657,7 +656,7 @@ struct GLZ : public glz::json_t {
     std::visit(
         [this](auto &&arg) {
           using U = std::decay_t<decltype(arg)>;
-          *static_cast<glz::json_t *>(this) = std::move(arg);
+          *static_cast<glz::json_t *>(this) = std::forward<decltype(arg)>(arg);
         },
         std::move(other));
     return *this;
@@ -720,16 +719,15 @@ struct GLZ : public glz::json_t {
           return false;
       }
       return true;
-    } else {
-      return false;
     }
+    return false;
   }
 
-  bool has_boolean_field(std::string_view key) const {
+  [[nodiscard]] bool has_boolean_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_boolean();
   }
 
-  bool has_double_field(std::string_view key) const {
+  [[nodiscard]] bool has_double_field(std::string_view key) const {
     if (!this->contains(key))
       return false;
 
@@ -739,11 +737,11 @@ struct GLZ : public glz::json_t {
                                   std::numeric_limits<double>::epsilon();
   }
 
-  bool has_number_field(std::string_view key) const {
+  [[nodiscard]] bool has_number_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_number();
   }
 
-  bool has_string_field(std::string_view key) const {
+  [[nodiscard]] bool has_string_field(std::string_view key) const {
     return this->contains(key) && this->at(key).is_string();
   }
 
@@ -787,17 +785,21 @@ struct GLZ : public glz::json_t {
   //   return {nullptr, nullptr};
   // }
 
+private:
   struct unpacked_items {
     std::unordered_map<glz::sv, XSON::GLZ> items;
   };
 
+  template <typename U> friend class glz::meta;
+
+public:
   std::vector<GLZ> &get_array() {
     using array_t = std::vector<GLZ>;
     return reinterpret_cast<array_t &>(
         static_cast<json_t *>(this)->get_array());
   }
 
-  std::vector<GLZ> const &get_array() const {
+  [[nodiscard]] std::vector<GLZ> const &get_array() const {
     using array_t = std::vector<GLZ>;
     return reinterpret_cast<const array_t &>(
         static_cast<json_t const *>(this)->get_array());
@@ -809,7 +811,8 @@ struct GLZ : public glz::json_t {
         static_cast<json_t *>(this)->get_object());
   }
 
-  std::map<std::string, GLZ, std::less<>> const &get_object() const {
+  [[nodiscard]] std::map<std::string, GLZ, std::less<>> const &
+  get_object() const {
     using object_t = std::map<std::string, GLZ, std::less<>>;
     return reinterpret_cast<const object_t &>(
         static_cast<json_t const *>(this)->get_object());
@@ -819,24 +822,22 @@ struct GLZ : public glz::json_t {
     if (this->is_object()) {
       using object_t = std::map<std::string, GLZ, std::less<>>;
       return reinterpret_cast<object_t &>(this->get_object());
-    } else {
-      throw std::runtime_error{
-          std::format("{}:{}:{}: items() called on elelment that does not "
-                      "support enumeration",
-                      __FILE__, __LINE__, __func__)};
     }
+    throw std::runtime_error{
+        std::format("{}:{}:{}: items() called on elelment that does not "
+                    "support enumeration",
+                    __FILE__, __LINE__, __func__)};
   }
 
-  auto const &items() const {
+  [[nodiscard]] auto const &items() const {
     if (this->is_object()) {
       using object_t = std::map<std::string, GLZ, std::less<>>;
       return reinterpret_cast<const object_t &>(this->get_object());
-    } else {
-      throw std::runtime_error{
-          std::format("{}:{}:{}: items() called on elelment that does not "
-                      "support enumeration",
-                      __FILE__, __LINE__, __func__)};
     }
+    throw std::runtime_error{
+        std::format("{}:{}:{}: items() called on elelment that does not "
+                    "support enumeration",
+                    __FILE__, __LINE__, __func__)};
   }
 } __attribute__((packed));
 
