@@ -791,6 +791,30 @@ struct GLZ : public glz::json_t {
     std::unordered_map<glz::sv, XSON::GLZ> items;
   };
 
+  std::vector<GLZ> &get_array() {
+    using array_t = std::vector<GLZ>;
+    return reinterpret_cast<array_t &>(
+        static_cast<json_t *>(this)->get_array());
+  }
+
+  std::vector<GLZ> const &get_array() const {
+    using array_t = std::vector<GLZ>;
+    return reinterpret_cast<const array_t &>(
+        static_cast<json_t const *>(this)->get_array());
+  }
+
+  std::map<std::string, GLZ, std::less<>> &get_object() {
+    using object_t = std::map<std::string, GLZ, std::less<>>;
+    return reinterpret_cast<object_t &>(
+        static_cast<json_t *>(this)->get_object());
+  }
+
+  std::map<std::string, GLZ, std::less<>> const &get_object() const {
+    using object_t = std::map<std::string, GLZ, std::less<>>;
+    return reinterpret_cast<const object_t &>(
+        static_cast<json_t const *>(this)->get_object());
+  }
+
   auto &items() {
     if (this->is_object()) {
       using object_t = std::map<std::string, GLZ, std::less<>>;
@@ -803,6 +827,17 @@ struct GLZ : public glz::json_t {
     }
   }
 
+  auto const &items() const {
+    if (this->is_object()) {
+      using object_t = std::map<std::string, GLZ, std::less<>>;
+      return reinterpret_cast<const object_t &>(this->get_object());
+    } else {
+      throw std::runtime_error{
+          std::format("{}:{}:{}: items() called on elelment that does not "
+                      "support enumeration",
+                      __FILE__, __LINE__, __func__)};
+    }
+  }
 } __attribute__((packed));
 
 static_assert(sizeof(GLZ) == sizeof(glz::json_t));
