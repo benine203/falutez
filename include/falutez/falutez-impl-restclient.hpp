@@ -22,9 +22,9 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
 
   ~RestClientClient() override { GenericClient::~GenericClient(); }
 
-  RestClientClient(RestClientClientConfig params)
+  explicit RestClientClient(RestClientClientConfig params)
       : GenericClient{std::make_shared<RestClientClientConfig>(params)},
-        thread_pool{params.thread_pool_size} {
+        thread_pool_{params.thread_pool_size} {
     RestClient::init();
   }
 
@@ -134,11 +134,10 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
       response.end_time = std::chrono::system_clock::now();
 
       if (res.code < 100) {
-        response.status =
-            HTTP::STATUS{std::make_pair<int16_t, std::string_view>(
-                res.code, std::format("(curl) {}",
-                                      curl_easy_strerror(
-                                          static_cast<CURLcode>(res.code))))};
+        response.status = HTTP::STATUS{std::pair<int16_t, std::string_view>(
+            res.code,
+            std::format("(curl) {}",
+                        curl_easy_strerror(static_cast<CURLcode>(res.code))))};
         return response;
       }
 
@@ -173,7 +172,7 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
       return response;
     };
 
-    auto sch = thread_pool.get_scheduler();
+    auto sch = thread_pool_.get_scheduler();
 
     auto [val] =
         stdexec::sync_wait(stdexec::then(stdexec::schedule(sch), sync_op))
@@ -184,7 +183,7 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
 
 private:
   // std::unique_ptr<RestClient::Connection> conn;
-  exec::static_thread_pool thread_pool;
+  exec::static_thread_pool thread_pool_;
 };
 
 } // namespace HTTP

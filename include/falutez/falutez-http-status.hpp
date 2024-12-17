@@ -94,17 +94,19 @@ struct STATUS {
   };
 
   explicit operator bool() const noexcept {
-    return code >= OK && code < MULTIPLE_CHOICES;
+    return code_ >= OK && code_ < MULTIPLE_CHOICES;
   }
 
-  bool error() const noexcept { return !operator bool(); }
+  [[nodiscard]] bool error() const noexcept { return !operator bool(); }
 
-  bool is_errno() const noexcept { return code < NONE; }
+  [[nodiscard]] bool is_errno() const noexcept { return code_ < NONE; }
 
-  bool is_platform_error() const noexcept { return platform_error.has_value(); }
+  [[nodiscard]] bool is_platform_error() const noexcept {
+    return platform_error_.has_value();
+  }
 
-  bool is_http() const noexcept {
-    return code >= CONTINUE && !is_platform_error();
+  [[nodiscard]] bool is_http() const noexcept {
+    return code_ >= CONTINUE && !is_platform_error();
   }
 
   auto operator->() const noexcept {
@@ -113,17 +115,17 @@ struct STATUS {
       std::string_view str;
     };
 
-    if (platform_error.has_value()) {
+    if (platform_error_.has_value()) {
       return Info{
-          .code = code,
-          .str = platform_error.value(),
+          .code = code_,
+          .str = platform_error_.value(),
       };
     }
 
-    if (code < NONE) {
+    if (code_ < NONE) {
       return Info{
-          .code = code,
-          .str = strerror(code),
+          .code = code_,
+          .str = strerror(code_),
       };
     }
 
@@ -207,63 +209,65 @@ struct STATUS {
          {NETWORK_AUTHENTICATION_REQUIRED, "Network Authentication Required"}},
     };
 
-    return infos.at(code);
+    return infos.at(code_);
   }
 
   STATUS() = default;
-  STATUS(int16_t code) noexcept : code(code) {}
+  STATUS(int16_t code) noexcept : code_(code) {}
   STATUS(std::pair<int16_t, std::string_view> const &platform_error) noexcept
-      : code(platform_error.first), platform_error(platform_error.second) {}
+      : code_(platform_error.first), platform_error_(platform_error.second) {}
 
   STATUS &operator=(int16_t code) noexcept {
-    this->code = code;
+    this->code_ = code;
     return *this;
   }
 
   STATUS &operator=(
       std::pair<int16_t, std::string_view> const &platform_error) noexcept {
-    this->code = platform_error.first;
-    this->platform_error = platform_error.second;
+    this->code_ = platform_error.first;
+    this->platform_error_ = platform_error.second;
     return *this;
   }
 
-  operator int16_t() const noexcept { return code; }
+  operator int16_t() const noexcept { return code_; }
 
   std::strong_ordering operator<=>(int16_t code) const noexcept {
-    return this->code <=> code;
+    return this->code_ <=> code;
   }
 
   std::strong_ordering operator<=>(STATUS const &other) const noexcept {
-    return code <=> other.code;
+    return code_ <=> other.code_;
   }
 
   bool operator==(std::integral auto code) const noexcept {
-    return this->code == code;
+    return this->code_ == code;
   }
 
   bool operator==(STATUS::Code code) const noexcept {
-    return this->code == static_cast<int16_t>(code);
+    return this->code_ == static_cast<int16_t>(code);
   }
 
   bool operator!=(STATUS::Code code) const noexcept {
-    return this->code != code;
+    return this->code_ != code;
   }
 
   bool operator==(STATUS const &other) const noexcept {
-    return code == other.code && platform_error == other.platform_error;
+    return code_ == other.code_ && platform_error_ == other.platform_error_;
   }
 
   bool operator!=(std::integral auto code) const noexcept {
-    return this->code != code && !is_platform_error();
+    return this->code_ != code && !is_platform_error();
   }
 
   bool operator!=(STATUS const &other) const noexcept {
-    return code != other.code && platform_error != other.platform_error;
+    return code_ != other.code_ && platform_error_ != other.platform_error_;
   }
 
-  std::string_view str() const noexcept { return operator->().str; }
+  [[nodiscard]] std::string_view str() const noexcept {
+    return operator->().str;
+  }
 
-  XSON::JSON to_json() const {
+  [[nodiscard]] XSON::JSON to_json() const {
     auto json = XSON::JSON{};
     auto const info = operator->();
     json["code"] = info.code;
@@ -272,8 +276,8 @@ struct STATUS {
   }
 
 private:
-  int16_t code = NONE;
-  std::optional<std::string> platform_error = std::nullopt;
+  int16_t code_ = NONE;
+  std::optional<std::string> platform_error_ = std::nullopt;
 };
 
 } // namespace HTTP

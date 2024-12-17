@@ -13,14 +13,14 @@ struct Headers {
   /// construct from maps, other headers, or JSON
 
   Headers(std::unordered_map<std::string, std::string> const &headers)
-      : headers{headers} {}
+      : headers_{headers} {}
   Headers(std::unordered_map<std::string, std::string> &&headers)
-      : headers{std::move(headers)} {}
+      : headers_{std::move(headers)} {}
   Headers(std::map<std::string, std::string> const &headers)
-      : headers{headers.begin(), headers.end()} {}
+      : headers_{headers.begin(), headers.end()} {}
   Headers(
       std::initializer_list<std::pair<std::string, std::string>> const &headers)
-      : headers{headers.begin(), headers.end()} {}
+      : headers_{headers.begin(), headers.end()} {}
   Headers() = default;
   Headers(Headers const &other) = default;
   Headers(Headers &&other) = default;
@@ -30,56 +30,83 @@ struct Headers {
   Headers &operator=(Headers &&other) = default;
 
   /// operator[] to access/mutate by key
-  std::string &operator[](std::string const &key) { return headers.at(key); }
-  std::string &operator[](std::string &&key) { return headers.at(key); }
+  std::string &operator[](std::string const &key) { return headers_.at(key); }
+  std::string &operator[](std::string &&key) { return headers_.at(key); }
   template <class K> std::string &at(K &&key) {
-    return headers.at(std::forward<K>(key));
+    return headers_.at(std::forward<K>(key));
   }
 
   /// at() mutating or read-only access
-  std::string &at(std::string &&key) { return headers.at(key); }
+  std::string &at(std::string &&key) { return headers_.at(key); }
   std::string const &at(std::string const &key) const {
-    return headers.at(key);
+    return headers_.at(key);
   }
   template <class K> std::string const &at(K &&key) const {
-    return headers.at(std::forward<K>(key));
+    return headers_.at(std::forward<K>(key));
   }
 
   /// other std::unordered_map methods
-  auto begin() { return headers.begin(); }
-  auto end() { return headers.end(); }
-  auto cbegin() const { return headers.cbegin(); }
-  auto cend() const { return headers.cend(); }
-  auto size() const { return headers.size(); }
-  auto empty() const { return headers.empty(); }
-  auto contains(std::string const &key) const { return headers.contains(key); }
-  auto clear() { headers.clear(); }
-  auto erase(std::string const &key) { return headers.erase(key); }
+  auto begin() { return headers_.begin(); }
+  auto end() { return headers_.end(); }
+  auto cbegin() const { return headers_.cbegin(); }
+  auto cend() const { return headers_.cend(); }
+  auto size() const { return headers_.size(); }
+  auto empty() const { return headers_.empty(); }
+  auto contains(std::string const &key) const { return headers_.contains(key); }
+  auto clear() { headers_.clear(); }
+  auto erase(std::string const &key) { return headers_.erase(key); }
 
   /// ingest JSON object into headers
   void merge(XSON::XSON auto &json) {
     for (auto &[key, value] : json.items()) {
       if (value.is_string()) {
-        headers[key] = value.template get<std::string>();
+        headers_[key] = value.template get<std::string>();
       } else if (value.is_number()) {
-        headers[key] = std::to_string(value.template get<double>());
+        headers_[key] = std::to_string(value.template get<double>());
       } else if (value.is_boolean()) {
-        headers[key] = value.template get<bool>() ? "true" : "false";
+        headers_[key] = value.template get<bool>() ? "true" : "false";
       } else {
-        headers[key] = value.serialize();
+        headers_[key] = value.serialize();
       }
     }
   }
 
   /// ingest from raw maps headers
   void merge(std::unordered_map<std::string, std::string> const &other) {
+    for (const auto &[key, value] : other) {
+      headers_[key] = value;
+    }
+  }
+
+  void merge(std::map<std::string, std::string> const &other) {
+    for (const auto &[key, value] : other) {
+      headers_[key] = value;
+    }
+  }
+
+  void merge(
+      std::initializer_list<std::pair<std::string, std::string>> const &other) {
+    for (const auto &[key, value] : other) {
+      headers_[key] = value;
+    }
+  }
+
+  void merge(std::unordered_map<std::string, std::string> &&other) {
     for (auto &[key, value] : other) {
-      headers[key] = value;
+      headers_[std::move(key)] = std::move(value);
+    }
+  }
+
+  void merge(std::map<std::string, std::string> &&other) {
+    for (auto &[key, value] : other) {
+      headers_[std::move(key)] = std::move(value);
     }
   }
 
   /// merge from other Headers
-  void merge(Headers const &other) { merge(other.headers); }
+  void merge(Headers const &other) { merge(other.headers_); }
+
+  void merge(Headers &&other) { merge(std::move(other.headers_)); }
 
   /// operator shortcuts
   Headers &operator+=(Headers const &other) {
@@ -95,35 +122,35 @@ struct Headers {
   }
 
   bool operator==(Headers const &other) const {
-    return headers == other.headers;
+    return headers_ == other.headers_;
   }
 
   XSON::JSON to_json() const {
     auto json = XSON::JSON{};
-    for (auto &[key, value] : headers) {
+    for (const auto &[key, value] : headers_) {
       json[key] = value;
     }
     return json;
   }
 
-  friend std::ostream &operator<<(std::ostream &os, Headers const &headers) {
-    os << headers.to_json().dump().value_or("undefined");
-    return os;
+  friend std::ostream &operator<<(std::ostream &ost, Headers const &headers) {
+    ost << headers.to_json().dump().value_or("undefined");
+    return ost;
   }
 
   std::string str() const { return to_json().dump().value_or("undefined"); }
 
   // conversion
   operator std::map<std::string, std::string>() const {
-    return std::map<std::string, std::string>{headers.begin(), headers.end()};
+    return std::map<std::string, std::string>{headers_.begin(), headers_.end()};
   }
 
   operator std::unordered_map<std::string, std::string>() const {
-    return headers;
+    return headers_;
   }
 
 private:
-  std::unordered_map<std::string, std::string> headers;
+  std::unordered_map<std::string, std::string> headers_;
 };
 
 } // namespace HTTP

@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "falutez/falutez-http-status.hpp"
-#include "falutez/falutez-types-std.hpp"
 #include "falutez/falutez-types.hpp"
 #include "rest-server-fixture.hpp"
 
@@ -73,7 +72,8 @@ TEST_F(RESTFixture, OneThreadMultipleReqs) {
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
 
-  std::chrono::system_clock::time_point req1_finish, req2_finish;
+  std::chrono::system_clock::time_point req1_finish;
+  std::chrono::system_clock::time_point req2_finish;
 
   stdexec::sync_wait(stdexec::when_all(
       stdexec::then(std::move(req1),
@@ -129,7 +129,9 @@ TEST_F(RESTFixture, MultiThreadPool) {
                         .headers = std::make_optional<HTTP::Headers>(),
                         .body = std::make_optional<HTTP::Body>()});
 
-  std::chrono::system_clock::time_point req1_finish, req2_finish, req3_finish;
+  std::chrono::system_clock::time_point req1_finish;
+  std::chrono::system_clock::time_point req2_finish;
+  std::chrono::system_clock::time_point req3_finish;
 
   stdexec::sync_wait(stdexec::when_all(
       stdexec::then(std::move(req1),

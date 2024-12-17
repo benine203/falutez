@@ -116,7 +116,7 @@ TYPED_TEST(XSONTest, MoveAssignment) {
 }
 
 TYPED_TEST(XSONTest, EnumItems) {
-  auto const raw = R"({"key":"value","key2":42,"key3":3.14})";
+  const auto *const raw = R"({"key":"value","key2":42,"key3":3.14})";
   auto obj = TypeParam::parse(raw);
 
   std::set<std::string> keys;
@@ -134,12 +134,12 @@ TYPED_TEST(XSONTest, EnumItems) {
 
 TYPED_TEST(XSONTest, ConsFromMap) {
 
-  auto m1 = std::unordered_map<std::string, int>{{"key", 42}, {"key2", 3}};
-  auto m2 = std::map<std::string_view, float>{{"key", 42.0}, {"key2", 3.14}};
+  auto map1 = std::unordered_map<std::string, int>{{"key", 42}, {"key2", 3}};
+  auto map2 = std::map<std::string_view, float>{{"key", 42.0}, {"key2", 3.14}};
 
-  TypeParam obj(m1);
+  TypeParam obj(map1);
 
-  TypeParam obj2(std::move(m2));
+  TypeParam obj2(std::move(map2));
 
   // Verify that the values are correctly set and retrieved using
   // operator[]
@@ -169,10 +169,10 @@ TYPED_TEST(XSONTest, ConsFromIL) {
       {4, 5, 6},
   }};
 
-  auto v1 = std::vector<int>{1, 2, 3};
+  auto vec1 = std::vector<int>{1, 2, 3};
 
   ASSERT_TRUE(arr.is_array());
-  EXPECT_EQ(arr[0], v1);
+  EXPECT_EQ(arr[0], vec1);
 
   auto const cil1 = std::initializer_list<float>{1.1, 2.2, 3.3};
   auto obj2 = TypeParam{cil1};
@@ -181,9 +181,9 @@ TYPED_TEST(XSONTest, ConsFromIL) {
 
   auto obj2_0 = obj2[0].template get<float>();
 
-  EXPECT_FLOAT_EQ(obj2_0, 1.1f);
-  //  EXPECT_FLOAT_EQ(obj2[1], 2.2f);
-  //  EXPECT_FLOAT_EQ(obj2[2], 3.3f);
+  EXPECT_FLOAT_EQ(obj2_0, 1.1F);
+  //  EXPECT_FLOAT_EQ(obj2[1], 2.2F);
+  //  EXPECT_FLOAT_EQ(obj2[2], 3.3F);
 }
 
 TYPED_TEST(XSONTest, FromVec) {
@@ -203,8 +203,8 @@ TYPED_TEST(XSONTest, FromVec) {
   EXPECT_EQ(obj[1], 2.2);
   EXPECT_EQ(obj[2], 3.3);
 
-  auto const cv = std::vector<std::string>{"a", "b", "c"};
-  obj = cv;
+  auto const cvec1 = std::vector<std::string>{"a", "b", "c"};
+  obj = cvec1;
 
   ASSERT_TRUE(obj.is_array());
   EXPECT_EQ(obj[0], "a");
@@ -221,13 +221,13 @@ TYPED_TEST(XSONTest, FromVariant) {
   obj = std::variant<int, double>{3.14};
   ASSERT_TRUE(obj.is_number());
 
-  const auto v2 = std::variant<double, std::string>{"xyz"};
-  obj = v2;
+  const auto vec2 = std::variant<double, std::string>{"xyz"};
+  obj = vec2;
 
   ASSERT_TRUE(obj.is_string());
   EXPECT_EQ(obj, "xyz");
 
-  obj = TypeParam{v2};
+  obj = TypeParam{vec2};
 
   ASSERT_TRUE(obj.is_string());
   EXPECT_EQ(obj, "xyz");
@@ -236,8 +236,6 @@ TYPED_TEST(XSONTest, FromVariant) {
 TYPED_TEST(XSONTest, Access) {
 
   TypeParam obj{};
-
-  nlohmann::json j1{};
 
   obj["key"] = "value";
   obj["key2"] = 42;
@@ -279,7 +277,8 @@ TYPED_TEST(XSONTest, SERDE) {
 
   TypeParam obj{};
 
-  const auto serialized = R"({"key":"value","key2":42,"key3":3.14})";
+  const auto *const serialized = R"({"key":"value","key2":42,"key3":3.14})";
+
   // Deserialize the object from a serialized string
   auto &ref_self = obj.deserialize(serialized);
 
@@ -300,7 +299,7 @@ TEST(XSON, ConversionRoundTrip) {
   XSON::NLH json1;
   XSON::GLZ json2;
 
-  const auto raw = R"({"key":"value","key2":42,"key3":3.14})";
+  const auto *const raw = R"({"key":"value","key2":42,"key3":3.14})";
 
   // Deserialize json1 from the raw string
   json1.deserialize(raw);

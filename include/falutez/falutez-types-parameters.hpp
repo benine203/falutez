@@ -19,24 +19,32 @@ struct Parameters {
       std::unordered_map<std::string_view,
                          std::variant<int128_t, double, std::string, bool>>;
 
-  value_type data() const { return params; }
+  value_type data() const { return params_; }
 
   Parameters() = default;
   Parameters(Parameters const &other) = default;
   Parameters(Parameters &&other) = default;
-  Parameters(value_type const &params) : params{params} {}
-  Parameters(value_type &&params) : params{std::move(params)} {}
+  Parameters(value_type const &params) : params_{params} {}
+  Parameters(value_type &&params) : params_{std::move(params)} {}
 
   Parameters &operator=(Parameters const &other) = default;
   Parameters &operator=(Parameters &&other) = default;
 
   void merge(value_type const &other) {
-    for (auto &[key, value] : other) {
-      params[key] = value;
+    for (const auto &[key, value] : other) {
+      params_[key] = value;
     }
   }
 
-  void merge(Parameters const &other) { merge(other.params); }
+  void merge(value_type &&other) {
+    for (auto &[key, value] : other) {
+      params_[std::move(key)] = std::move(value);
+    }
+  }
+
+  void merge(Parameters const &other) { merge(other.params_); }
+
+  void merge(Parameters &&other) { merge(std::move(other.params_)); }
 
   Parameters &operator+=(Parameters const &other) {
     merge(other);
@@ -50,59 +58,59 @@ struct Parameters {
   }
 
   bool operator==(Parameters const &other) const {
-    return params == other.params;
+    return params_ == other.params_;
   }
 
   std::string &operator[](std::string_view const &key) {
-    return std::get<std::string>(params.at(key));
+    return std::get<std::string>(params_.at(key));
   }
 
   std::string &operator[](std::string_view &&key) {
-    return std::get<std::string>(params.at(key));
+    return std::get<std::string>(params_.at(key));
   }
 
   std::string &at(std::string_view const &key) {
-    return std::get<std::string>(params.at(key));
+    return std::get<std::string>(params_.at(key));
   }
 
   std::string &at(std::string_view &&key) {
-    return std::get<std::string>(params.at(key));
+    return std::get<std::string>(params_.at(key));
   }
 
   std::string const &at(std::string_view const &key) const {
-    return std::get<std::string>(params.at(key));
+    return std::get<std::string>(params_.at(key));
   }
 
   std::string const &at(std::string_view &&key) const {
-    return std::get<std::string>(params.at(key));
+    return std::get<std::string>(params_.at(key));
   }
 
-  auto begin() { return params.begin(); }
-  auto end() { return params.end(); }
-  auto cbegin() const { return params.cbegin(); }
-  auto cend() const { return params.cend(); }
-  auto size() const { return params.size(); }
-  auto empty() const { return params.empty(); }
-  auto contains(std::string const &key) const { return params.contains(key); }
-  auto clear() { params.clear(); }
-  auto erase(std::string const &key) { return params.erase(key); }
+  auto begin() { return params_.begin(); }
+  auto end() { return params_.end(); }
+  auto cbegin() const { return params_.cbegin(); }
+  auto cend() const { return params_.cend(); }
+  auto size() const { return params_.size(); }
+  auto empty() const { return params_.empty(); }
+  auto contains(std::string const &key) const { return params_.contains(key); }
+  auto clear() { params_.clear(); }
+  auto erase(std::string const &key) { return params_.erase(key); }
 
   void merge(XSON::XSON auto &json) {
     for (auto &[key, value] : json.items()) {
       if (value.is_string()) {
-        params[key] = value.template get<std::string>();
+        params_[key] = value.template get<std::string>();
       } else if (value.is_number()) {
-        params[key] = value.template get<double>();
+        params_[key] = value.template get<double>();
       } else if (value.is_boolean()) {
-        params[key] = value.template get<bool>();
+        params_[key] = value.template get<bool>();
       } else {
-        params[key] = value.serialize();
+        params_[key] = value.serialize();
       }
     }
   }
 
   void to_json(XSON::XSON auto &json) const {
-    for (auto &[key, value] : params) {
+    for (const auto &[key, value] : params_) {
       if (std::holds_alternative<int128_t>(value)) {
         json[key] = std::get<int128_t>(value);
       } else if (std::holds_alternative<double>(value)) {
@@ -130,7 +138,7 @@ struct Parameters {
 
   std::string get_url_component() const {
     std::string url_component;
-    for (auto &[key, value] : params) {
+    for (const auto &[key, value] : params_) {
       if (url_component.empty()) {
         url_component += "?";
       } else {
@@ -152,7 +160,7 @@ struct Parameters {
   }
 
 private:
-  value_type params;
+  value_type params_;
 };
 
 } // namespace HTTP

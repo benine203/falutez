@@ -28,10 +28,10 @@ enum class METHOD {
 };
 
 inline std::ostream &operator<<(std::ostream &os, METHOD const &method) {
-  static constexpr auto method_names = std::array<std::string_view, 8>{
+  static constexpr auto kMethodNames = std::array<std::string_view, 8>{
       "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE"};
-  assert(static_cast<int>(method) < method_names.size());
-  os << method_names[static_cast<int>(method)];
+  assert(static_cast<int>(method) < kMethodNames.size());
+  os << kMethodNames[static_cast<int>(method)];
   return os;
 }
 
@@ -142,9 +142,9 @@ struct RequestSpec {
     return json;
   }
 
-  friend std::ostream &operator<<(std::ostream &os, RequestSpec const &req) {
-    os << req.to_json().dump().value_or("undefined");
-    return os;
+  friend std::ostream &operator<<(std::ostream &ost, RequestSpec const &req) {
+    ost << req.to_json().dump().value_or("undefined");
+    return ost;
   }
 
   std::string str() const { return to_json().dump().value_or("undefined"); }
