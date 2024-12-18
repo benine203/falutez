@@ -30,8 +30,7 @@ struct Headers {
   Headers &operator=(Headers &&other) = default;
 
   /// operator[] to access/mutate by key
-  std::string &operator[](std::string const &key) { return headers_.at(key); }
-  std::string &operator[](std::string &&key) { return headers_.at(key); }
+  std::string &operator[](std::string const &key) { return headers_[key]; }
   template <class K> std::string &at(K &&key) {
     return headers_.at(std::forward<K>(key));
   }
@@ -55,6 +54,14 @@ struct Headers {
   auto contains(std::string const &key) const { return headers_.contains(key); }
   auto clear() { headers_.clear(); }
   auto erase(std::string const &key) { return headers_.erase(key); }
+
+  decltype(auto) emplace(auto &&...args) {
+    return headers_.emplace(std::forward<decltype(args)>(args)...);
+  }
+
+  decltype(auto) insert(auto &&arg) {
+    return headers_.insert(std::forward<decltype(arg)>(arg));
+  }
 
   /// ingest JSON object into headers
   void merge(XSON::XSON auto &json) {
