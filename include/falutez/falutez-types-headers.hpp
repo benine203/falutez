@@ -44,6 +44,26 @@ struct Headers {
     return headers_.at(std::forward<K>(key));
   }
 
+  auto &set_content_length(size_t length) {
+    headers_["Content-Length"] = std::to_string(length);
+    return *this;
+  }
+
+  auto content_length() const {
+    return headers_.contains("Content-Length")
+               ? std::stoul(headers_.at("Content-Length"))
+               : 0;
+  }
+
+  auto &set_content_type(std::string const &type) {
+    headers_["Content-Type"] = type;
+    return *this;
+  }
+
+  auto content_type() const {
+    return headers_.contains("Content-Type") ? headers_.at("Content-Type") : "";
+  }
+
   /// other std::unordered_map methods
   auto begin() { return headers_.begin(); }
   auto end() { return headers_.end(); }
