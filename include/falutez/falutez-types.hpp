@@ -48,6 +48,10 @@ struct Body {
 
   Body(std::string_view const &raw) { data = raw; }
 
+  Body(std::string const &raw) { data = raw; }
+
+  Body(std::string &&raw) { data = std::move(raw); }
+
   Body() = default;
 };
 
@@ -101,10 +105,10 @@ struct ResponseDetails {
 
   std::string str() const { return to_json().dump().value_or("undefined"); }
 
-  friend std::ostream &operator<<(std::ostream &os,
+  friend std::ostream &operator<<(std::ostream &ost,
                                   ResponseDetails const &resp) {
-    os << resp.to_json().dump().value_or("undefined");
-    return os;
+    ost << resp.to_json().dump().value_or("undefined");
+    return ost;
   }
 };
 
@@ -160,8 +164,7 @@ concept ClientImpl = requires(TImpl impl) {
   // setters
   impl.set_base_url(std::string_view{});
   impl.set_timeout(std::chrono::milliseconds{});
-  impl.set_keepalive(std::make_pair<bool, std::chrono::milliseconds>(
-      true, std::chrono::milliseconds{1000}));
+  impl.set_keepalive(std::make_pair(true, std::chrono::milliseconds{1000}));
   impl.set_headers(Headers{});
 
   // getters
