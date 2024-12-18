@@ -500,14 +500,42 @@ struct GLZ : public glz::json_t {
     return static_cast<F>(glz::json_t::get<double>());
   }
 
+  template <std::constructible_from<std::string> S>
+  [[nodiscard]] S const &get() const {
+    return glz::json_t::get_string();
+  }
+
+  template <std::constructible_from<std::string> S> [[nodiscard]] S &get() {
+    return glz::json_t::get_string();
+  }
+
+  template <aggregate_container A>
+    requires(!std::is_convertible_v<A, std::string_view> &&
+             !std::is_convertible_v<A, std::string>)
+  A get() const {
+    const auto &self_as_vec = glz::json_t::get_array();
+
+    using elm_type = typename std::decay_t<A>::value_type;
+
+    A ret{};
+
+    for (const auto &elm : self_as_vec) {
+      ret.emplace_back(elm.get<elm_type>());
+    }
+
+    return ret;
+  }
+
   template <typename T>
-    requires((!std::integral<T>) && (!std::floating_point<T>))
+    requires((!std::integral<T>) && (!std::floating_point<T>) &&
+             !aggregate_container<T>)
   [[nodiscard]] T const &get() const {
     return glz::json_t::get<T>();
   }
 
   template <typename T>
-    requires((!std::integral<T>) && (!std::floating_point<T>))
+    requires((!std::integral<T>) && (!std::floating_point<T>) &&
+             !aggregate_container<T>)
   T &get() {
     return glz::json_t::get<T>();
   }

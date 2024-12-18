@@ -102,6 +102,7 @@ TYPED_TEST(XSONTest, MoveAssignment) {
   TypeParam obj1 = typename TypeParam::object_t{};
   obj1["key"] = "value";
   obj1["key2"] = 42;
+
   obj1["key3"] = 3.14;
 
   TypeParam obj2{};
@@ -210,6 +211,9 @@ TYPED_TEST(XSONTest, FromVec) {
   EXPECT_EQ(obj[0], "a");
   EXPECT_EQ(obj[1], "b");
   EXPECT_EQ(obj[2], "c");
+
+  auto to_vec = obj.template get<std::vector<std::string>>();
+  ASSERT_EQ(to_vec, cvec1);
 }
 
 TYPED_TEST(XSONTest, FromVariant) {
