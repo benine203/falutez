@@ -3,7 +3,6 @@
 #ifndef _UNIHEADER_BUILD_
 #include <concepts>
 #include <format>
-#include <iostream>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -24,6 +23,79 @@
 #include <falutez/falutez-types-std.hpp>
 
 namespace XSON {
+
+namespace internal {
+template <typename NLH, typename T>
+static inline std::optional<T> coerce_impl(NLH const &self) {
+  if constexpr (std::is_same_v<T, bool>) {
+    if (self.is_boolean())
+      return self.template get<bool>();
+    if (self.is_number())
+      return static_cast<T>(self.template get<double>());
+    if (self.is_string()) {
+      auto const &str = self.get_string();
+      if (str == "false" || str == "0")
+        return false;
+      if (str == "true" || str == "1")
+        return true;
+      return std::nullopt;
+    }
+
+    return std::nullopt;
+  } else if constexpr (std::is_integral_v<T>) {
+    if (self.is_number())
+      return self.template get<T>();
+
+    if (self.is_string()) {
+      auto const &str = self.get_string();
+      if (str.empty())
+        return std::nullopt;
+      if constexpr (std::is_signed_v<T>) {
+        return std::stoll(str);
+      } else {
+        return std::stoull(str);
+      }
+    }
+
+    if (self.is_boolean())
+      return static_cast<T>(self.template get<bool>());
+
+    return std::nullopt;
+  } else if constexpr (std::is_floating_point_v<T>) {
+    if (self.is_number())
+      return static_cast<T>(self.template get<double>());
+
+    if (self.is_string()) {
+      auto const &str = self.get_string();
+      if (str.empty())
+        return std::nullopt;
+      return std::stod(str);
+    }
+
+    if (self.is_boolean())
+      return static_cast<T>(self.template get<bool>());
+
+    return std::nullopt;
+  } else if constexpr (std::is_same_v<T, std::string>) {
+    if (self.is_string()) {
+      return self.template get<std::string>();
+    }
+
+    if (self.is_number())
+      return std::to_string(self.template get<double>());
+
+    if (self.is_boolean())
+      return T(self.template get<bool>() ? "true" : "false");
+
+    return std::nullopt;
+  } else if constexpr (std::is_same_v<T, std::string_view>) {
+    throw std::runtime_error{std::format(
+        "{}:{}:{}: does not support coersion to non-owning handle types",
+        __FILE__, __LINE__, __PRETTY_FUNCTION__)};
+  }
+  return std::nullopt;
+}
+} // namespace internal
 
 template <typename R>
 concept aggregate_container = requires(R &r) { // no maps or other composites
@@ -128,6 +200,16 @@ concept XSON = requires(TXSONImpl obj) {
 
   obj.get_array();
 
+  obj.get_string();
+
+  { obj.template coerce<int8_t>() } -> std::same_as<std::optional<int8_t>>;
+  { obj.template coerce<uint64_t>() } -> std::same_as<std::optional<uint64_t>>;
+  { obj.template coerce<bool>() } -> std::same_as<std::optional<bool>>;
+  { obj.template coerce<double>() } -> std::same_as<std::optional<double>>;
+  {
+    obj.template coerce<std::string>()
+  } -> std::same_as<std::optional<std::string>>;
+
   TXSONImpl{std::unordered_map<std::string, int>{}};
   TXSONImpl{std::map<std::string, int>{}};
 
@@ -221,8 +303,15 @@ struct NLH : public nlohmann::json {
   }
 
   NLH &deserialize(std::string_view str) {
-    *static_cast<nlohmann::json *>(this) = parse(str);
+    *static_cast<nlohmann::json *>(this) =
+        std::move(nlohmann::json::parse(std::move(str)));
     return *this;
+  }
+
+  NLH static parse(auto &&...args) {
+    auto the_obj = static_cast<NLH>(
+        nlohmann::json::parse(std::forward<decltype(args)>(args)...));
+    return the_obj;
   }
 
   [[nodiscard]] bool has_boolean_field(std::string_view key) const {
@@ -241,6 +330,15 @@ struct NLH : public nlohmann::json {
     return this->contains(key) && this->at(key).is_string();
   }
 
+  [[nodiscard]] std::string &get_string() {
+    return this->get_ref<std::string &>();
+  }
+
+  [[nodiscard]] std::string const &get_string() const {
+    return this->get_ref<std::string const &>();
+  }
+
+  [[nodiscard]]
   NLH &get_array() {
     if (!this->is_array())
       throw std::runtime_error{
@@ -253,6 +351,12 @@ struct NLH : public nlohmann::json {
       throw std::runtime_error{
           std::format("{}:{}:{}: not an array", __FILE__, __LINE__, __func__)};
     return *this;
+  }
+
+  template <typename T>
+  [[nodiscard]]
+  std::optional<T> coerce() const {
+    return internal::coerce_impl<NLH, T>(*this);
   }
 
   NLH &operator[](const char *key) {
@@ -492,8 +596,14 @@ struct GLZ : public glz::json_t {
     return json;
   }
 
-  template <std::integral T> T get() const {
-    return static_cast<T>(glz::json_t::get<double>());
+  template <std::same_as<bool> B> [[nodiscard]] B get() const {
+    return glz::json_t::get<bool>();
+  }
+
+  template <std::integral I>
+    requires(!std::same_as<I, bool>)
+  I get() const {
+    return static_cast<I>(glz::json_t::get<double>());
   }
 
   template <std::floating_point F> F get() const {
@@ -538,6 +648,10 @@ struct GLZ : public glz::json_t {
              !aggregate_container<T>)
   T &get() {
     return glz::json_t::get<T>();
+  }
+
+  template <typename T> [[nodiscard]] std::optional<T> coerce() const {
+    return internal::coerce_impl<GLZ, T>(*this);
   }
 
   template <typename S>

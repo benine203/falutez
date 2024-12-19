@@ -275,6 +275,67 @@ TYPED_TEST(XSONTest, Access) {
 
   auto &arr = obj["key5"].get_array();
   EXPECT_EQ(arr.size(), 3);
+
+  obj["key5"].get_array().emplace_back(4);
+  EXPECT_EQ(obj["key5"][3], 4);
+  EXPECT_EQ(arr.size(), 4);
+}
+
+TYPED_TEST(XSONTest, Coerce) {
+  const auto *const raw =
+      R"({
+           "key":"value",
+           "key2":42,
+           "key3":3.14,
+           "key4":true,
+           "key5":"5",
+           "key6":
+           "false",
+           "key7":"true"
+      })";
+
+  auto obj = TypeParam::parse(raw);
+
+  ASSERT_TRUE(obj.is_object());
+  ASSERT_EQ(obj.size(), 7);
+
+  // Verify that the values are correctly coerced
+  auto key_native = obj["key"].template coerce<std::string>();
+  ASSERT_TRUE(key_native.has_value());
+  EXPECT_EQ(key_native.value(), "value");
+
+  // coersion to non-owning type isn't supported
+  ASSERT_THROW((void)obj["key"].template coerce<std::string_view>(),
+               std::runtime_error);
+
+  ASSERT_FALSE(obj["key"].template coerce<bool>().has_value());
+
+  ASSERT_TRUE(obj["key2"].template coerce<int>().has_value());
+  EXPECT_EQ(obj["key2"].template coerce<int>().value(), 42);
+
+  ASSERT_TRUE(obj["key3"].template coerce<double>().has_value());
+  EXPECT_EQ(obj["key3"].template coerce<double>().value(), 3.14);
+
+  ASSERT_TRUE(obj["key4"].template coerce<bool>().has_value());
+  EXPECT_EQ(obj["key4"].template coerce<bool>().value(), true);
+
+  ASSERT_TRUE(obj["key5"].template coerce<std::string>().has_value());
+  EXPECT_EQ(obj["key5"].template coerce<std::string>().value(), "5");
+  ASSERT_TRUE(obj["key5"].template coerce<int>().has_value());
+  EXPECT_EQ(obj["key5"].template coerce<int>().value(), 5);
+  ASSERT_TRUE(obj["key5"].template coerce<double>().has_value());
+  EXPECT_EQ(obj["key5"].template coerce<double>().value(), 5.0);
+  ASSERT_FALSE(obj["key5"].template coerce<bool>().has_value());
+
+  ASSERT_TRUE(obj["key6"].template coerce<std::string>().has_value());
+  EXPECT_EQ(obj["key6"].template coerce<std::string>().value(), "false");
+  ASSERT_TRUE(obj["key6"].template coerce<bool>().has_value());
+  EXPECT_EQ(obj["key6"].template coerce<bool>().value(), false);
+
+  ASSERT_TRUE(obj["key7"].template coerce<std::string>().has_value());
+  EXPECT_EQ(obj["key7"].template coerce<std::string>().value(), "true");
+  ASSERT_TRUE(obj["key7"].template coerce<bool>().has_value());
+  EXPECT_EQ(obj["key7"].template coerce<bool>().value(), true);
 }
 
 TYPED_TEST(XSONTest, SERDE) {
