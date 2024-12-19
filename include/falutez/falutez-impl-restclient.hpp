@@ -38,7 +38,7 @@ struct RestClientClient : public GenericClient<RestClientClientConfig> {
     // and apply any necessary configuration.
 
     if (params.path.empty() && this->config->base_url.empty()) {
-      co_return HTTP::unexpected(HTTP::STATUS(
+      co_return FLZ::unexpected(HTTP::STATUS(
           {EINVAL, std::format("({}:{}:{}): both path and base_url empty",
                                __FILE__, __LINE__, __func__)}));
     }

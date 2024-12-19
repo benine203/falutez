@@ -15,9 +15,8 @@ namespace HTTP {
  * @brief Parameters - path-based parameters for a request URL
  */
 struct Parameters {
-  using value_type =
-      std::unordered_map<std::string_view,
-                         std::variant<int128_t, double, std::string, bool>>;
+  using value_type = std::unordered_map<
+      std::string_view, std::variant<FLZ::int128_t, double, std::string, bool>>;
 
   value_type data() const { return params_; }
 
@@ -111,8 +110,8 @@ struct Parameters {
 
   void to_json(XSON::XSON auto &json) const {
     for (const auto &[key, value] : params_) {
-      if (std::holds_alternative<int128_t>(value)) {
-        json[key] = std::get<int128_t>(value);
+      if (std::holds_alternative<FLZ::int128_t>(value)) {
+        json[key] = std::get<FLZ::int128_t>(value);
       } else if (std::holds_alternative<double>(value)) {
         json[key] = std::get<double>(value);
       } else if (std::holds_alternative<std::string>(value)) {
@@ -129,9 +128,9 @@ struct Parameters {
     return json;
   }
 
-  friend std::ostream &operator<<(std::ostream &os, Parameters const &params) {
-    os << params.to_json().dump().value_or("undefined");
-    return os;
+  friend std::ostream &operator<<(std::ostream &ost, Parameters const &params) {
+    ost << params.to_json().dump().value_or("undefined");
+    return ost;
   }
 
   std::string str() const { return to_json().dump().value_or("undefined"); }
@@ -146,8 +145,8 @@ struct Parameters {
       }
       url_component += std::string{key};
       url_component += "=";
-      if (std::holds_alternative<int128_t>(value)) {
-        url_component += std::format("{}", std::get<int128_t>(value));
+      if (std::holds_alternative<FLZ::int128_t>(value)) {
+        url_component += std::format("{}", std::get<FLZ::int128_t>(value));
       } else if (std::holds_alternative<double>(value)) {
         url_component += std::format("{}", std::get<double>(value));
       } else if (std::holds_alternative<std::string>(value)) {

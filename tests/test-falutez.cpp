@@ -11,7 +11,7 @@ struct NullClient : public HTTP::GenericClient<NullClientConfig> {
 
   NullClient() = delete;
 
-  NullClient(NullClientConfig params)
+  explicit NullClient(NullClientConfig params)
       : GenericClient{std::make_shared<NullClientConfig>(params)} {}
 
   NullClient(NullClient &&) = default;

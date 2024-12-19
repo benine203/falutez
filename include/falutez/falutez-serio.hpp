@@ -26,7 +26,8 @@ namespace XSON {
 
 namespace internal {
 template <typename NLH, typename T>
-static inline std::optional<T> coerce_impl(NLH const &self) {
+static inline FLZ::expected<T, std::runtime_error>
+coerce_impl(NLH const &self) {
   if constexpr (std::is_same_v<T, bool>) {
     if (self.is_boolean())
       return self.template get<bool>();
@@ -38,18 +39,26 @@ static inline std::optional<T> coerce_impl(NLH const &self) {
         return false;
       if (str == "true" || str == "1")
         return true;
-      return std::nullopt;
+      return FLZ::unexpected(std::range_error{std::format(
+          "string->bool coercsion only supports these string representations: "
+          "false, 0, true, 1; got: {}",
+          str)});
     }
 
-    return std::nullopt;
+    return FLZ::unexpected(std::runtime_error{
+        std::format("{}:{}:{}: cannot coerce to bool; no compatible type",
+                    __FILE__, __LINE__, __PRETTY_FUNCTION__)});
   } else if constexpr (std::is_integral_v<T>) {
     if (self.is_number())
       return self.template get<T>();
 
     if (self.is_string()) {
       auto const &str = self.get_string();
+
       if (str.empty())
-        return std::nullopt;
+        return FLZ::unexpected(std::range_error{
+            std::format("empty string may be coerced to integral type")});
+
       if constexpr (std::is_signed_v<T>) {
         return std::stoll(str);
       } else {
@@ -60,22 +69,30 @@ static inline std::optional<T> coerce_impl(NLH const &self) {
     if (self.is_boolean())
       return static_cast<T>(self.template get<bool>());
 
-    return std::nullopt;
+    return FLZ::unexpected(std::runtime_error{
+        std::format("{}:{}:{}: cannot coerce to integral; no compatible type",
+                    __FILE__, __LINE__, __PRETTY_FUNCTION__)});
   } else if constexpr (std::is_floating_point_v<T>) {
     if (self.is_number())
       return static_cast<T>(self.template get<double>());
 
     if (self.is_string()) {
       auto const &str = self.get_string();
+
       if (str.empty())
-        return std::nullopt;
+        return FLZ::unexpected(std::range_error{
+            std::format("empty string may be coerced to floating point type")});
+
       return std::stod(str);
     }
 
     if (self.is_boolean())
       return static_cast<T>(self.template get<bool>());
 
-    return std::nullopt;
+    return FLZ::unexpected(std::runtime_error{
+        std::format("{}:{}:{}: cannot coerce to floating point; no compatible "
+                    "type",
+                    __FILE__, __LINE__, __PRETTY_FUNCTION__)});
   } else if constexpr (std::is_same_v<T, std::string>) {
     if (self.is_string()) {
       return self.template get<std::string>();
@@ -87,13 +104,18 @@ static inline std::optional<T> coerce_impl(NLH const &self) {
     if (self.is_boolean())
       return T(self.template get<bool>() ? "true" : "false");
 
-    return std::nullopt;
+    return FLZ::unexpected(std::runtime_error{
+        std::format("{}:{}:{}: cannot coerce to string; no compatible type",
+                    __FILE__, __LINE__, __PRETTY_FUNCTION__)});
   } else if constexpr (std::is_same_v<T, std::string_view>) {
     throw std::runtime_error{std::format(
-        "{}:{}:{}: does not support coersion to non-owning handle types",
+        "{}:{}:{}: will not coerce to non-owning handle type. reassess "
+        "semantics of this operation in relation to client code.",
         __FILE__, __LINE__, __PRETTY_FUNCTION__)};
   }
-  return std::nullopt;
+  return FLZ::unexpected(std::runtime_error{
+      std::format("{}:{}:{}: coersion for requested type not supported",
+                  __FILE__, __LINE__, __PRETTY_FUNCTION__)});
 }
 } // namespace internal
 
@@ -202,13 +224,13 @@ concept XSON = requires(TXSONImpl obj) {
 
   obj.get_string();
 
-  { obj.template coerce<int8_t>() } -> std::same_as<std::optional<int8_t>>;
-  { obj.template coerce<uint64_t>() } -> std::same_as<std::optional<uint64_t>>;
-  { obj.template coerce<bool>() } -> std::same_as<std::optional<bool>>;
-  { obj.template coerce<double>() } -> std::same_as<std::optional<double>>;
   {
-    obj.template coerce<std::string>()
-  } -> std::same_as<std::optional<std::string>>;
+    obj.template coerce<int8_t>()
+  } -> std::same_as<FLZ::expected<int8_t, std::runtime_error>>;
+
+  {
+    obj.template coerce<uint64_t>()
+  } -> std::same_as<FLZ::expected<uint64_t, std::runtime_error>>;
 
   TXSONImpl{std::unordered_map<std::string, int>{}};
   TXSONImpl{std::map<std::string, int>{}};
@@ -293,7 +315,7 @@ struct NLH : public nlohmann::json {
     return *this;
   }
 
-  NLH &operator=(HTTP::int128_t other) {
+  NLH &operator=(FLZ::int128_t other) {
     *static_cast<nlohmann::json *>(this) = static_cast<double>(other);
     return *this;
   }
@@ -355,7 +377,7 @@ struct NLH : public nlohmann::json {
 
   template <typename T>
   [[nodiscard]]
-  std::optional<T> coerce() const {
+  auto coerce() const {
     return internal::coerce_impl<NLH, T>(*this);
   }
 
@@ -650,7 +672,7 @@ struct GLZ : public glz::json_t {
     return glz::json_t::get<T>();
   }
 
-  template <typename T> [[nodiscard]] std::optional<T> coerce() const {
+  template <typename T> [[nodiscard]] auto coerce() const {
     return internal::coerce_impl<GLZ, T>(*this);
   }
 
@@ -774,7 +796,7 @@ struct GLZ : public glz::json_t {
     return *this;
   }
 
-  GLZ &operator=(HTTP::int128_t other) {
+  GLZ &operator=(FLZ::int128_t other) {
     *static_cast<glz::json_t *>(this) = static_cast<double>(other);
     return *this;
   }

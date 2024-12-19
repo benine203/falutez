@@ -112,7 +112,7 @@ struct ResponseDetails {
   }
 };
 
-using Response = HTTP::expected<ResponseDetails, HTTP::STATUS>;
+using Response = FLZ::expected<ResponseDetails, HTTP::STATUS>;
 
 struct AsyncResponse : public exec::task<Response> {
   using exec::task<Response>::task; // inherit constructors
